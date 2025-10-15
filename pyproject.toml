@@ -13,7 +13,7 @@ authors = [
 license = {text = "MIT"}
 keywords = ["sqlplus", "sql", "oracle", "script-processor", "file-merger"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Operating System :: OS Independent",
@@ -42,4 +42,5 @@ mergesourcefile = "MergeSourceFile.main:main"
 where = ["."]
 include = ["MergeSourceFile*"]
 exclude = ["tests*"]
+
 
