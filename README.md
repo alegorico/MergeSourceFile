@@ -68,7 +68,9 @@ mergesourcefile --input input.sql --output output.sql
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License,
+
+You are free to use, copy, modify, and distribute this software for any purpose, provided that the copyright notice and this permission are included. The software is provided “as is”, without warranty of any kind.
 
 ## Author
 
