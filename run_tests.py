@@ -14,10 +14,9 @@ def run_tests():
     print("🧪 Ejecutando tests de MergeSourceFile...")
     print("=" * 50)
     
-    # Tests que funcionan correctamente
+    # Tests que funcionan correctamente (solo tests unitarios para producción)
     working_tests = [
-        "tests/test_main.py::TestParseSQL",
-        "tests/test_main.py::TestEdgeCases"
+        "tests/test_main.py"  # Todos los tests unitarios principales
     ]
     
     for test in working_tests:
@@ -34,14 +33,13 @@ def run_tests():
     print("\n" + "=" * 50)
     print("📊 Generando reporte de cobertura...")
     
-    # Ejecutar todos los tests que funcionan con cobertura
+    # Ejecutar todos los tests unitarios con cobertura
     subprocess.run([
         str(python_exe), "-m", "pytest", 
         "--cov=MergeSourceFile", 
         "--cov-report=html",
         "--cov-report=term-missing",
-        "tests/test_main.py::TestParseSQL",
-        "tests/test_main.py::TestEdgeCases"
+        "tests/test_main.py"
     ], cwd=project_root)
     
     print("✅ Tests completados!")
