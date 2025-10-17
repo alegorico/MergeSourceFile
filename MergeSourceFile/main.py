@@ -80,8 +80,9 @@ def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
 def process_file_sequentially(file_content, verbose=False):
     defines = {}
     replaced_content = []
-    # Modificado para que el ';' sea opcional
-    define_pattern = re.compile(r'^define\s+(\w+)\s*=\s*\'(.*?)\'\s*;?\s*$', re.IGNORECASE)
+    # Modificado para soportar valores con decimales, guiones y otros caracteres válidos
+    # Acepta: DEFINE var = 'valor' (con comillas) y DEFINE var = valor (sin comillas, incluyendo 3.14, ABC-123, etc.)
+    define_pattern = re.compile(r'^define\s+(\w+)\s*=\s*(?:\'(.*?)\'|([^\s;]+))\s*;?\s*$', re.IGNORECASE)
     undefine_pattern = re.compile(r'^undefine\s+(\w+)\s*;\s*$', re.IGNORECASE)
     variable_pattern = re.compile(r"(&\w+)(\.\.)?")
     
@@ -96,18 +97,30 @@ def process_file_sequentially(file_content, verbose=False):
             replaced_content.append(line)
             continue
 
-        # Si es una línea DEFINE, la registramos o redefinimos
-        match_define = define_pattern.match(clean)
-        if match_define:
-            var_name = match_define.group(1)
-            var_value = match_define.group(2)
-            defines[var_name] = var_value  # Redefinición permitida
-            if verbose:
-                print(f"[VERBOSE] Definiendo variable: {var_name} = {var_value}")
-            # Inicializar el contador de reemplazo para la variable definida
-            if var_name not in replacement_count:
-                replacement_count[var_name] = 0
-            continue  # No agregar la línea DEFINE al resultado final
+        # Detectar posibles líneas DEFINE problemáticas antes del match principal
+        if clean.lstrip().upper().startswith('DEFINE '):
+            match_define = define_pattern.match(clean)
+            if match_define:
+                var_name = match_define.group(1)
+                # El valor puede estar en el grupo 2 (con comillas) o grupo 3 (sin comillas)
+                var_value = match_define.group(2) if match_define.group(2) is not None else match_define.group(3)
+                
+                # Validar que el valor no sea None (valores vacíos '' son válidos)
+                if var_value is None:
+                    raise ValueError(f"Error: DEFINE con valor inválido en línea {line_number}: '{clean.strip()}'")
+                
+                defines[var_name] = var_value  # Redefinición permitida
+                if verbose:
+                    print(f"[VERBOSE] Definiendo variable: {var_name} = {var_value}")
+                # Inicializar el contador de reemplazo para la variable definida
+                if var_name not in replacement_count:
+                    replacement_count[var_name] = 0
+                continue  # No agregar la línea DEFINE al resultado final
+            else:
+                # Es una línea que empieza con DEFINE pero no coincide con el patrón
+                if verbose:
+                    print(f"[VERBOSE] Ignorando DEFINE con sintaxis inválida en línea {line_number}: '{clean.strip()}'")
+                # Continuar procesando la línea como texto normal (podría ser un comentario o SQL válido)
 
         # Si es una línea UNDEFINE, eliminamos la variable
         match_undefine = undefine_pattern.match(clean)

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2024-10-17
+
+### Enhanced
+- **Improved DEFINE syntax support**
+  - Enhanced regex pattern to support decimal values (e.g., `DEFINE price = 3.14`)
+  - Added support for hyphenated values (e.g., `DEFINE code = ABC-123`)
+  - Extended support for complex alphanumeric values with special characters
+  - Maintains full backward compatibility with existing quoted and unquoted syntax
+  - Validates compliance with Oracle SQL*Plus DEFINE standards
+
+- **Better error reporting for DEFINE statements**
+  - Invalid DEFINE syntax now reported in verbose mode with line numbers
+  - Clear distinction between ignored invalid DEFINE and successful definitions
+  - Examples: `"Ignorando DEFINE con sintaxis inválida en línea 4: 'DEFINE var = ;'"`
+  - Empty string values (`DEFINE var = '';`) now supported as valid
+  - Better user feedback for troubleshooting problematic variable definitions
+
+### Fixed
+- **Critical bug fix**: DEFINE statements without quotes now process correctly
+  - Previously: `DEFINE VAR = value` would fail with "variable used before defined" error
+  - Now: Both `DEFINE VAR = value` and `DEFINE VAR = 'value'` work correctly
+  - Affected real-world database deployment scripts
+
 ## [1.1.0] - 2024-10-17
 
 ### Added
