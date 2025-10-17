@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MergeSourceFile"
-version = "1.0.0"
-description = "A Python tool to process SQL*Plus scripts, resolving file inclusions (@, @@) and variable substitutions (DEFINE/UNDEFINE)"
+version = "1.1.0"
+description = "A Python tool to process SQL*Plus scripts with Jinja2 template support, resolving file inclusions (@, @@) and variable substitutions (DEFINE/UNDEFINE)"
 readme = "README.md"
 authors = [
     {name = "Alejandro G."}
@@ -28,7 +28,9 @@ classifiers = [
     "Topic :: Utilities"
 ]
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "jinja2>=3.0.0"
+]
 
 [project.optional-dependencies]
 dev = [

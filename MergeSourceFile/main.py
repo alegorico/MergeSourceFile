@@ -23,6 +23,8 @@
 import re
 import argparse
 from pathlib import Path
+from jinja2 import Environment, BaseLoader, StrictUndefined, TemplateSyntaxError, UndefinedError
+from jinja2.exceptions import TemplateError
 
 # Sobrescribir la clase ArgumentParser para modificar los mensajes predeterminados
 class CustomArgumentParser(argparse.ArgumentParser):
@@ -168,7 +170,237 @@ def process_file_with_replacements(input_file, skip_var=False, verbose=False):
         return full_content
 
 
-# 4. Configuración de argparse y ejecución
+# 4. Funciones para procesamiento de plantillas Jinja2
+def process_jinja2_template(template_content, variables=None, strict_undefined=True, 
+                           variable_start_string='{{', variable_end_string='}}'):
+    """
+    Procesa una plantilla Jinja2 con las variables proporcionadas.
+    
+    Args:
+        template_content (str): Contenido de la plantilla Jinja2
+        variables (dict): Diccionario con las variables para la plantilla
+        strict_undefined (bool): Si True, lanza error para variables no definidas
+        variable_start_string (str): Delimitador de inicio de variable
+        variable_end_string (str): Delimitador de fin de variable
+    
+    Returns:
+        str: Contenido renderizado
+    
+    Raises:
+        TemplateError: Para errores de sintaxis o variables no definidas
+    """
+    if variables is None:
+        variables = {}
+    
+    try:
+        # Configurar el entorno Jinja2
+        env_kwargs = {
+            'variable_start_string': variable_start_string,
+            'variable_end_string': variable_end_string,
+            'loader': BaseLoader()
+        }
+        
+        if strict_undefined:
+            env_kwargs['undefined'] = StrictUndefined
+        
+        env = Environment(**env_kwargs)
+        
+        # Agregar filtros personalizados
+        env.filters['sql_escape'] = sql_escape_filter
+        env.filters['strftime'] = strftime_filter
+        
+        # Crear y renderizar la plantilla
+        template = env.from_string(template_content)
+        return template.render(**variables)
+        
+    except (TemplateSyntaxError, UndefinedError, TemplateError) as e:
+        raise Exception(f"Error procesando plantilla Jinja2: {str(e)}")
+
+
+def sql_escape_filter(value):
+    """
+    Filtro personalizado para escapar valores SQL (doble comilla simple).
+    """
+    if isinstance(value, str):
+        return value.replace("'", "''")
+    return str(value)
+
+
+def strftime_filter(value, format_str='%Y-%m-%d'):
+    """
+    Filtro personalizado para formatear fechas usando strftime.
+    """
+    if hasattr(value, 'strftime'):
+        return value.strftime(format_str)
+    return str(value)
+
+
+def process_file_with_jinja2_replacements(input_file, variables=None, skip_var=False, verbose=False, processing_order='default'):
+    """
+    Procesa un archivo con múltiples estrategias de orden según el caso de uso.
+    
+    Args:
+        input_file (str): Ruta del archivo de entrada
+        variables (dict): Variables para las plantillas Jinja2
+        skip_var (bool): Si omitir el procesamiento de variables SQL
+        verbose (bool): Modo detallado
+        processing_order (str): Orden de procesamiento ('default', 'jinja2_first', 'includes_last')
+    
+    Returns:
+        str: Contenido final procesado
+    """
+    if variables is None:
+        variables = {}
+    
+    if processing_order == 'jinja2_first':
+        # Orden: Jinja2 → Inclusiones → Variables SQL
+        # Útil cuando las plantillas Jinja2 determinan qué archivos incluir
+        return _process_jinja2_first(input_file, variables, skip_var, verbose)
+    elif processing_order == 'includes_last':
+        # Orden: Variables SQL → Jinja2 → Inclusiones  
+        # Útil cuando las variables SQL determinan las inclusiones
+        return _process_includes_last(input_file, variables, skip_var, verbose)
+    else:
+        # Orden por defecto: Inclusiones → Jinja2 → Variables SQL
+        # Mantiene compatibilidad con implementación actual
+        return _process_default_order(input_file, variables, skip_var, verbose)
+
+
+def _process_default_order(input_file, variables, skip_var, verbose):
+    """Orden: Inclusiones → Jinja2 → Variables SQL (comportamiento actual)"""
+    # Primero resolver inclusiones @ y @@
+    if verbose:
+        print("Resolviendo inclusiones de archivos...")
+    print("Árbol de inclusiones:")
+    full_content = parse_sqlplus_file(input_file, verbose=verbose)
+    
+    # Luego procesar plantillas Jinja2
+    if verbose:
+        print("Procesando plantillas Jinja2...")
+    jinja2_content = process_jinja2_template(full_content, variables)
+    
+    # Finalmente procesar variables SQL si no se omite
+    if not skip_var:
+        if verbose:
+            print("Procesando variables SQL...")
+        final_content = process_file_sequentially(jinja2_content, verbose=verbose)
+        return final_content
+    else:
+        return jinja2_content
+
+
+def _process_jinja2_first(input_file, variables, skip_var, verbose):
+    """Orden: Jinja2 → Inclusiones → Variables SQL"""
+    # Primero leer el archivo principal sin resolver inclusiones
+    if verbose:
+        print("Leyendo archivo principal...")
+    
+    with open(input_file, 'r', encoding='utf-8') as f:
+        main_content = f.read()
+    
+    # Procesar plantillas Jinja2 en el archivo principal
+    if verbose:
+        print("Procesando plantillas Jinja2 en archivo principal...")
+    jinja2_main = process_jinja2_template(main_content, variables)
+    
+    # Crear archivo temporal en el mismo directorio que el archivo original
+    # para que las rutas relativas funcionen correctamente
+    import tempfile
+    import os
+    base_path = os.path.dirname(input_file)
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sql', delete=False, 
+                                   dir=base_path, encoding='utf-8') as temp_file:
+        temp_file.write(jinja2_main)
+        temp_path = temp_file.name
+    
+    try:
+        # Ahora resolver inclusiones desde el archivo temporal
+        if verbose:
+            print("Resolviendo inclusiones de archivos...")
+        print("Árbol de inclusiones:")
+        full_content = parse_sqlplus_file(temp_path, base_path, verbose=verbose)
+        
+        # Finalmente procesar variables SQL si no se omite
+        if not skip_var:
+            if verbose:
+                print("Procesando variables SQL...")
+            final_content = process_file_sequentially(full_content, verbose=verbose)
+            return final_content
+        else:
+            return full_content
+    finally:
+        # Limpiar archivo temporal
+        os.unlink(temp_path)
+
+
+def _process_includes_last(input_file, variables, skip_var, verbose):
+    """Orden: Variables SQL → Jinja2 → Inclusiones"""
+    # Primero leer el archivo principal
+    if verbose:
+        print("Leyendo archivo principal...")
+    
+    with open(input_file, 'r', encoding='utf-8') as f:
+        main_content = f.read()
+    
+    # Procesar variables SQL primero (si no se omite)
+    if not skip_var:
+        if verbose:
+            print("Procesando variables SQL...")
+        sql_processed = process_file_sequentially(main_content, verbose=verbose)
+    else:
+        sql_processed = main_content
+    
+    # Luego procesar plantillas Jinja2
+    if verbose:
+        print("Procesando plantillas Jinja2...")
+    jinja2_content = process_jinja2_template(sql_processed, variables)
+    
+    # Crear archivo temporal en el mismo directorio que el archivo original
+    import tempfile
+    import os
+    base_path = os.path.dirname(input_file)
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sql', delete=False, 
+                                   dir=base_path, encoding='utf-8') as temp_file:
+        temp_file.write(jinja2_content)
+        temp_path = temp_file.name
+    
+    try:
+        if verbose:
+            print("Resolviendo inclusiones de archivos...")
+        print("Árbol de inclusiones:")
+        final_content = parse_sqlplus_file(temp_path, base_path, verbose=verbose)
+        return final_content
+    finally:
+        os.unlink(temp_path)
+
+
+def process_content_with_both_engines(content, variables=None, verbose=False):
+    """
+    Procesa contenido aplicando ambos motores de plantillas: Jinja2 y variables SQL.
+    
+    Args:
+        content (str): Contenido a procesar
+        variables (dict): Variables para Jinja2
+        verbose (bool): Modo detallado
+    
+    Returns:
+        str: Contenido procesado
+    """
+    if variables is None:
+        variables = {}
+    
+    # Primero Jinja2
+    jinja2_content = process_jinja2_template(content, variables)
+    
+    # Luego variables SQL
+    final_content = process_file_sequentially(jinja2_content, verbose=verbose)
+    
+    return final_content
+
+
+# 5. Configuración de argparse y ejecución
 def main():
     parser = CustomArgumentParser(description='Procesa un script de SQL*Plus, resolviendo inclusiones y sustituyendo variables.')
     
@@ -180,6 +412,20 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Muestra información detallada sobre el procesamiento interno (modo verbose).')
     
+    # Opción para habilitar procesamiento de plantillas Jinja2
+    parser.add_argument('--jinja2', '-j', action='store_true',
+                        help='Habilita el procesamiento de plantillas Jinja2 antes de las variables SQL.')
+    
+    # Archivo de variables para Jinja2
+    parser.add_argument('--jinja2-vars', '-jv', type=str,
+                        help='Archivo JSON con variables para las plantillas Jinja2.')
+    
+    # Orden de procesamiento
+    parser.add_argument('--processing-order', '-po', type=str, 
+                        choices=['default', 'jinja2_first', 'includes_last'],
+                        default='default',
+                        help='Orden de procesamiento: default (inclusiones→jinja2→sql), jinja2_first (jinja2→inclusiones→sql), includes_last (sql→jinja2→inclusiones).')
+    
     # Argumentos de entrada y salida (renombrados a --input y --output)
     parser.add_argument('--input', '-i', required=True, help='El archivo de entrada a procesar')
     parser.add_argument('--output', '-o', required=True, help='El archivo donde se escribirá el resultado')
@@ -187,11 +433,31 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Ejecutar el proceso completo o parcial
-        result = process_file_with_replacements(args.input, args.skip_var, args.verbose)
+        # Cargar variables Jinja2 si se especifica
+        jinja2_variables = {}
+        if args.jinja2_vars:
+            import json
+            with open(args.jinja2_vars, 'r', encoding='utf-8') as f:
+                jinja2_variables = json.load(f)
+            if args.verbose:
+                print(f"Variables Jinja2 cargadas desde: {args.jinja2_vars}")
+        
+        # Ejecutar el proceso según las opciones
+        if args.jinja2:
+            # Usar el procesamiento con Jinja2
+            result = process_file_with_jinja2_replacements(
+                args.input, 
+                jinja2_variables, 
+                args.skip_var, 
+                args.verbose,
+                args.processing_order
+            )
+        else:
+            # Usar el procesamiento tradicional
+            result = process_file_with_replacements(args.input, args.skip_var, args.verbose)
 
         # Escribir el resultado en el archivo de salida
-        with open(args.output, 'w') as output_file:
+        with open(args.output, 'w', encoding='utf-8') as output_file:
             output_file.write(result)
 
         print(f"Procesamiento completado. Resultado escrito en: {args.output}")
@@ -200,6 +466,8 @@ def main():
         print(f"Error: {e}")
     except ValueError as e:
         print(f"Error de procesamiento: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 if __name__ == '__main__':

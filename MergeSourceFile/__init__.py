@@ -1,6 +1,6 @@
-"""MergeSourceFile - A SQL*Plus script processor for resolving file inclusions and variable substitutions."""
+"""MergeSourceFile - A SQL*Plus script processor with Jinja2 template support for resolving file inclusions and variable substitutions."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Alejandro G."
 __license__ = "MIT"
 
