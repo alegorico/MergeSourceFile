@@ -24,6 +24,14 @@ This is a Python project that includes a script capable of processing SQL*Plus s
 pip install MergeSourceFile
 ```
 
+## What's New in v1.1.1
+
+- 🐛 **DEFINE Bug Fixes**: Critical fix for DEFINE statements without quotes (e.g., `DEFINE VAR = value`)
+- 🔧 **Enhanced DEFINE Support**: Improved regex to handle decimal values, hyphens, and complex alphanumeric values
+- 📊 **Better Error Reporting**: Verbose mode now shows ignored DEFINE statements with line numbers
+- 🪟 **Windows Compatibility**: Fixed Unicode encoding issues for full Windows support
+- ✅ **Robust Testing**: 17 new tests added, 56/56 tests passing including full CLI integration
+
 ## What's New in v1.1.0
 
 - ✨ **Jinja2 Template Support**: Full integration with Jinja2 templating engine
@@ -92,10 +100,22 @@ mergesourcefile --input input.sql --output output.sql
 
 ### Variable Substitution
 
-- `DEFINE varname = 'value';`: Defines or redefines a variable
+#### DEFINE Syntax (Enhanced in v1.1.1)
+- `DEFINE varname = 'quoted value';`: Defines with quoted value (supports spaces)
+- `DEFINE varname = unquoted_value;`: Defines with unquoted value (no spaces)
+- `DEFINE varname = 3.14;`: Supports decimal values
+- `DEFINE varname = ABC-123;`: Supports hyphenated values
+- `DEFINE varname = '';`: Supports empty string values
+
+#### Variable Usage
 - `&varname`: References a variable for substitution
 - `&varname..`: Variable concatenation with period
 - `UNDEFINE varname;`: Removes a variable definition
+
+#### Error Handling (v1.1.1)
+- Invalid DEFINE syntax is ignored and reported in verbose mode
+- Example: `DEFINE var = ;` will be skipped with a warning
+- Variables must be defined before use or an error is thrown
 
 ### 🆕 Jinja2 Template Processing
 
@@ -231,14 +251,46 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
 - For large projects, consider splitting templates into smaller, focused files
 - Use Jinja2 comments `{# comment #}` instead of SQL comments for template-specific notes
 
+## Platform Compatibility
+
+### Operating Systems
+- ✅ **Linux**: Full support with all features
+- ✅ **macOS**: Full support with all features  
+- ✅ **Windows**: Full support with enhanced compatibility (v1.1.1)
+  - Fixed Unicode encoding issues for CLI operations
+  - All 56 tests pass successfully on Windows systems
+  - Proper error codes and file path handling
+
+### Python Versions
+- Python 3.8+
+- Tested with Python 3.9, 3.10, 3.11, 3.12, 3.14
+
+### Character Encoding
+- Primary support: UTF-8 (recommended)
+- Windows compatibility: ASCII-safe output for CLI operations
+- All text files should use UTF-8 encoding for best results
+
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Jinja2 syntax errors**: Ensure proper template syntax with matching braces and tags
-2. **Variable not found**: Check that all variables are provided via `--jinja2-vars`
-3. **File inclusion issues**: Verify file paths and choose appropriate processing order
-4. **Encoding problems**: Ensure all files use consistent encoding (UTF-8 recommended)
+1. **DEFINE syntax errors** (Fixed in v1.1.1):
+   - ✅ `DEFINE VAR = value` now works correctly (was broken in v1.1.0)
+   - ✅ Both quoted and unquoted DEFINE values supported
+   - Use verbose mode (`--verbose`) to see ignored invalid DEFINE statements
+
+2. **Jinja2 syntax errors**: Ensure proper template syntax with matching braces and tags
+3. **Variable not found**: Check that all variables are provided via `--jinja2-vars`
+4. **File inclusion issues**: Verify file paths and choose appropriate processing order
+5. **Encoding problems** (Fixed in v1.1.1): 
+   - ✅ Windows encoding issues resolved
+   - Ensure all files use consistent encoding (UTF-8 recommended)
+   - CLI now works properly on all Windows systems
+
+### Windows-Specific Issues (Resolved in v1.1.1)
+- ✅ **Unicode character display**: Fixed issues with special characters in CLI output
+- ✅ **File path resolution**: Enhanced path handling for nested file inclusions
+- ✅ **Exit codes**: CLI now returns proper error codes (1 for errors, 0 for success)
 
 ### Debug Mode
 

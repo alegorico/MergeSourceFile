@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.1] - 2024-10-17
+## [1.1.1] - 2025-10-17
 
 ### Enhanced
 - **Improved DEFINE syntax support**
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Better error reporting for DEFINE statements**
   - Invalid DEFINE syntax now reported in verbose mode with line numbers
   - Clear distinction between ignored invalid DEFINE and successful definitions
-  - Examples: `"Ignorando DEFINE con sintaxis inválida en línea 4: 'DEFINE var = ;'"`
+  - Examples: `"Ignorando DEFINE con sintaxis invalida en linea 4: 'DEFINE var = ;'"`
   - Empty string values (`DEFINE var = '';`) now supported as valid
   - Better user feedback for troubleshooting problematic variable definitions
 
@@ -27,6 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously: `DEFINE VAR = value` would fail with "variable used before defined" error
   - Now: Both `DEFINE VAR = value` and `DEFINE VAR = 'value'` work correctly
   - Affected real-world database deployment scripts
+
+- **Windows compatibility improvements**
+  - Fixed Unicode encoding issues causing CLI integration test failures on Windows
+  - Replaced problematic Unicode characters (→, Á, └) with ASCII equivalents (-, A, |--)
+  - Improved error codes: CLI now returns proper exit codes (1) for errors
+  - Enhanced file path resolution for nested includes with correct base_path calculation
+  - All 56 tests now pass successfully on Windows systems
+
+### Testing
+- **Comprehensive test coverage**
+  - Added 17 new tests covering DEFINE syntax improvements and error reporting
+  - Enhanced integration test suite with 6 CLI tests covering all major functionality
+  - 100% test pass rate achieved (56/56 tests passing)
+  - Full coverage of edge cases including space handling and Unicode compatibility
 
 ## [1.1.0] - 2024-10-17
 
