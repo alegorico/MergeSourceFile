@@ -42,7 +42,13 @@ class CustomArgumentParser(argparse.ArgumentParser):
 def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
     
     def read_file(file_path, base_path, tree_depth):
-        full_path = Path(base_path) / file_path
+        # Si file_path es absoluto o si tree_depth es 0 (archivo principal), usar file_path directamente
+        if tree_depth == 0 or Path(file_path).is_absolute():
+            full_path = Path(file_path)
+        else:
+            # Solo para archivos incluidos (@, @@), usar base_path
+            full_path = Path(base_path) / file_path
+        
         if not full_path.exists():
             raise FileNotFoundError(f"Archivo no encontrado: {full_path}")
         
@@ -174,7 +180,14 @@ def process_file_with_replacements(input_file, skip_var=False, verbose=False):
     print("Arbol de inclusiones:")
     # Calcular la ruta base del archivo de entrada
     import os
-    base_path = os.path.dirname(os.path.abspath(input_file))
+    
+    # Si input_file es relativo, usar el directorio actual como base_path
+    # Si input_file es absoluto, usar su directorio padre
+    if os.path.isabs(input_file):
+        base_path = os.path.dirname(input_file)
+    else:
+        base_path = os.getcwd()
+    
     full_content = parse_sqlplus_file(input_file, base_path, verbose=verbose)
 
     if not skip_var:
@@ -290,7 +303,14 @@ def _process_default_order(input_file, variables, skip_var, verbose):
     print("Arbol de inclusiones:")
     # Calcular la ruta base del archivo de entrada
     import os
-    base_path = os.path.dirname(os.path.abspath(input_file))
+    
+    # Si input_file es relativo, usar el directorio actual como base_path
+    # Si input_file es absoluto, usar su directorio padre
+    if os.path.isabs(input_file):
+        base_path = os.path.dirname(input_file)
+    else:
+        base_path = os.getcwd()
+        
     full_content = parse_sqlplus_file(input_file, base_path, verbose=verbose)
     
     # Luego procesar plantillas Jinja2
