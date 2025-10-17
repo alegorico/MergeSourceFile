@@ -101,7 +101,7 @@ SELECT sysdate FROM dual;
         
         assert result.returncode == 0
         assert "[VERBOSE]" in result.stdout
-        assert "Árbol de inclusiones:" in result.stdout
+        assert "Arbol de inclusiones:" in result.stdout
     
     def test_cli_missing_input(self):
         """Test para manejo de archivo de entrada faltante"""
@@ -112,7 +112,7 @@ SELECT sysdate FROM dual;
         ], capture_output=True, text=True)
         
         assert result.returncode != 0
-        assert "FileNotFoundError" in result.stderr or "No such file" in result.stderr
+        assert "Archivo no encontrado" in result.stdout
 
 
 @pytest.mark.integration

@@ -133,10 +133,9 @@ class TestEdgeCases:
         assert "-- Mas comentarios" in result
     
     def test_define_without_quotes(self):
-        """Test para DEFINE sin comillas - debería fallar con la implementación actual"""
+        """Test para DEFINE sin comillas - ahora debería funcionar después del bug fix"""
         content = "DEFINE var1=valor_sin_comillas\nSELECT '&var1' FROM dual;"
         
-        # Este caso falla porque el regex requiere comillas
-        # Es el comportamiento esperado de la implementación actual
-        with pytest.raises(ValueError, match="se usa antes de ser definida"):
-            process_file_sequentially(content, verbose=False)
+        # Después del bug fix, esto debería funcionar correctamente
+        result = process_file_sequentially(content, verbose=False)
+        assert "SELECT 'valor_sin_comillas' FROM dual;" in result
