@@ -1,4 +1,4 @@
-# MIT License
+﻿# MIT License
 # 
 # Copyright (c) 2023 Alejandro G.
 # 
@@ -33,12 +33,12 @@ class CustomArgumentParser(argparse.ArgumentParser):
 
     def format_help(self):
         help_text = super().format_help()
-        # Reemplazar el mensaje de ayuda predeterminado en inglés con español
+        # Reemplazar el mensaje de ayuda predeterminado en ingles con espanol
         help_text = help_text.replace("show this help message and exit", "muestra este mensaje de ayuda y sale")
         return help_text
 
 
-# 1. Función para leer y resolver inclusiones @ y @@, construyendo un árbol
+# 1. Funcion para leer y resolver inclusiones @ y @@, construyendo un arbol
 def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
     
     def read_file(file_path, base_path, tree_depth):
@@ -46,10 +46,10 @@ def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
         if not full_path.exists():
             raise FileNotFoundError(f"Archivo no encontrado: {full_path}")
         
-        # Crear un prefijo basado en la profundidad del árbol
-        prefix = "    " * tree_depth + "└── "
+        # Crear un prefijo basado en la profundidad del arbol
+        prefix = "    " * tree_depth + "|-- "
         
-        # Mostrar el archivo que se está procesando con el nuevo estilo
+        # Mostrar el archivo que se esta procesando con el nuevo estilo
         print(prefix + f"{full_path.name}")
 
         content = ""
@@ -57,16 +57,16 @@ def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
             for line in f:
                 line = line.rstrip()
                 if verbose:
-                    print(f"[VERBOSE] Procesando línea: {line}")
+                    print(f"[VERBOSE] Procesando linea: {line}")
                 if line.startswith('@@'):
                     nested_file_path = line[2:].strip()
                     if verbose:
-                        print(f"[VERBOSE] Se encontró inclusión de archivo con @@: {nested_file_path}")
+                        print(f"[VERBOSE] Se encontro inclusion de archivo con @@: {nested_file_path}")
                     content += read_file(nested_file_path, full_path.parent, tree_depth + 1) + '\n'
                 elif line.startswith('@'):
                     nested_file_path = line[1:].strip()
                     if verbose:
-                        print(f"[VERBOSE] Se encontró inclusión de archivo con @: {nested_file_path}")
+                        print(f"[VERBOSE] Se encontro inclusion de archivo con @: {nested_file_path}")
                     content += read_file(nested_file_path, base_path, tree_depth + 1) + '\n'
                 else:
                     content += line + '\n'
@@ -76,11 +76,11 @@ def parse_sqlplus_file(input_file, base_path='.', tree_depth=0, verbose=False):
     return read_file(input_file, base_path, tree_depth)
 
 
-# 2. Función para reemplazar variables en el archivo con evaluación de orden
+# 2. Funcion para reemplazar variables en el archivo con evaluacion de orden
 def process_file_sequentially(file_content, verbose=False):
     defines = {}
     replaced_content = []
-    # Modificado para soportar valores con decimales, guiones y otros caracteres válidos
+    # Modificado para soportar valores con decimales, guiones y otros caracteres validos
     # Acepta: DEFINE var = 'valor' (con comillas) y DEFINE var = valor (sin comillas, incluyendo 3.14, ABC-123, etc.)
     define_pattern = re.compile(r'^define\s+(\w+)\s*=\s*(?:\'(.*?)\'|([^\s;]+))\s*;?\s*$', re.IGNORECASE)
     undefine_pattern = re.compile(r'^undefine\s+(\w+)\s*;\s*$', re.IGNORECASE)
@@ -97,7 +97,7 @@ def process_file_sequentially(file_content, verbose=False):
             replaced_content.append(line)
             continue
 
-        # Detectar posibles líneas DEFINE problemáticas antes del match principal
+        # Detectar posibles lineas DEFINE problematicas antes del match principal
         if clean.lstrip().upper().startswith('DEFINE '):
             match_define = define_pattern.match(clean)
             if match_define:
@@ -105,24 +105,24 @@ def process_file_sequentially(file_content, verbose=False):
                 # El valor puede estar en el grupo 2 (con comillas) o grupo 3 (sin comillas)
                 var_value = match_define.group(2) if match_define.group(2) is not None else match_define.group(3)
                 
-                # Validar que el valor no sea None (valores vacíos '' son válidos)
+                # Validar que el valor no sea None (valores vacios '' son validos)
                 if var_value is None:
-                    raise ValueError(f"Error: DEFINE con valor inválido en línea {line_number}: '{clean.strip()}'")
+                    raise ValueError(f"Error: DEFINE con valor invalido en linea {line_number}: '{clean.strip()}'")
                 
-                defines[var_name] = var_value  # Redefinición permitida
+                defines[var_name] = var_value  # Redefinicion permitida
                 if verbose:
                     print(f"[VERBOSE] Definiendo variable: {var_name} = {var_value}")
                 # Inicializar el contador de reemplazo para la variable definida
                 if var_name not in replacement_count:
                     replacement_count[var_name] = 0
-                continue  # No agregar la línea DEFINE al resultado final
+                continue  # No agregar la linea DEFINE al resultado final
             else:
-                # Es una línea que empieza con DEFINE pero no coincide con el patrón
+                # Es una linea que empieza con DEFINE pero no coincide con el patron
                 if verbose:
-                    print(f"[VERBOSE] Ignorando DEFINE con sintaxis inválida en línea {line_number}: '{clean.strip()}'")
-                # Continuar procesando la línea como texto normal (podría ser un comentario o SQL válido)
+                    print(f"[VERBOSE] Ignorando DEFINE con sintaxis invalida en linea {line_number}: '{clean.strip()}'")
+                # Continuar procesando la linea como texto normal (podria ser un comentario o SQL valido)
 
-        # Si es una línea UNDEFINE, eliminamos la variable
+        # Si es una linea UNDEFINE, eliminamos la variable
         match_undefine = undefine_pattern.match(clean)
         if match_undefine:
             var_name = match_undefine.group(1)
@@ -130,17 +130,17 @@ def process_file_sequentially(file_content, verbose=False):
                 del defines[var_name]  # Eliminar la variable del diccionario
             if verbose:
                 print(f"[VERBOSE] Variable indefinida: {var_name}")
-            continue  # No agregar la línea UNDEFINE al resultado final
+            continue  # No agregar la linea UNDEFINE al resultado final
 
         # Si no es un DEFINE ni UNDEFINE, verificamos si hay variables que deben ser reemplazadas
         all_matches = variable_pattern.findall(clean)
 
-        # Revisar cada variable usada en la línea
+        # Revisar cada variable usada en la linea
         replaced_line = clean
         for match in all_matches:
-            var_name = match[0][1:]  # Nombre de la variable sin el símbolo '&'
+            var_name = match[0][1:]  # Nombre de la variable sin el simbolo '&'
             if var_name not in defines:
-                raise ValueError(f"Error: La variable '{var_name}' se usa antes de ser definida (línea {line_number}).")
+                raise ValueError(f"Error: La variable '{var_name}' se usa antes de ser definida (linea {line_number}).")
             value = defines[var_name]
             
             # Reemplazar y contar
@@ -150,16 +150,16 @@ def process_file_sequentially(file_content, verbose=False):
                 replaced_line = replaced_line.replace(match[0], value)
             
             if verbose:
-                print(f"[VERBOSE] Reemplazando variable {var_name} con valor {value} en la línea {line_number}")
+                print(f"[VERBOSE] Reemplazando variable {var_name} con valor {value} en la linea {line_number}")
             # Incrementar el contador de reemplazos para la variable
             replacement_count[var_name] += 1
 
         replaced_content.append(replaced_line)
 
-    # Mostrar las variables y cuántas veces fueron reemplazadas, con formato justificado
+    # Mostrar las variables y cuantas veces fueron reemplazadas, con formato justificado
     print("\nResumen de sustituciones:")
     if replacement_count:
-        max_var_length = max(len(var) for var in replacement_count)  # Ancho máximo de las variables
+        max_var_length = max(len(var) for var in replacement_count)  # Ancho maximo de las variables
         for var, count in replacement_count.items():
             print(f"{var.ljust(max_var_length)}\t{count}")
     else:
@@ -168,14 +168,17 @@ def process_file_sequentially(file_content, verbose=False):
     return "\n".join(replaced_content)
 
 
-# 3. Función que combina todo el proceso
+# 3. Funcion que combina todo el proceso
 def process_file_with_replacements(input_file, skip_var=False, verbose=False):
     # Siempre resolveremos las inclusiones @ y @@
-    print("Árbol de inclusiones:")
-    full_content = parse_sqlplus_file(input_file, verbose=verbose)
+    print("Arbol de inclusiones:")
+    # Calcular la ruta base del archivo de entrada
+    import os
+    base_path = os.path.dirname(os.path.abspath(input_file))
+    full_content = parse_sqlplus_file(input_file, base_path, verbose=verbose)
 
     if not skip_var:
-        # Si NO se pasa el flag --skip-var, hacer el reemplazo de variables de sustitución secuencialmente
+        # Si NO se pasa el flag --skip-var, hacer el reemplazo de variables de sustitucion secuencialmente
         final_content = process_file_sequentially(full_content, verbose=verbose)
         return final_content
     else:
@@ -250,7 +253,7 @@ def strftime_filter(value, format_str='%Y-%m-%d'):
 
 def process_file_with_jinja2_replacements(input_file, variables=None, skip_var=False, verbose=False, processing_order='default'):
     """
-    Procesa un archivo con múltiples estrategias de orden según el caso de uso.
+    Procesa un archivo con multiples estrategias de orden segun el caso de uso.
     
     Args:
         input_file (str): Ruta del archivo de entrada
@@ -266,26 +269,29 @@ def process_file_with_jinja2_replacements(input_file, variables=None, skip_var=F
         variables = {}
     
     if processing_order == 'jinja2_first':
-        # Orden: Jinja2 → Inclusiones → Variables SQL
-        # Útil cuando las plantillas Jinja2 determinan qué archivos incluir
+        # Orden: Jinja2 -> Inclusiones -> Variables SQL
+        # util cuando las plantillas Jinja2 determinan que archivos incluir
         return _process_jinja2_first(input_file, variables, skip_var, verbose)
     elif processing_order == 'includes_last':
-        # Orden: Variables SQL → Jinja2 → Inclusiones  
-        # Útil cuando las variables SQL determinan las inclusiones
+        # Orden: Variables SQL -> Jinja2 -> Inclusiones  
+        # util cuando las variables SQL determinan las inclusiones
         return _process_includes_last(input_file, variables, skip_var, verbose)
     else:
-        # Orden por defecto: Inclusiones → Jinja2 → Variables SQL
-        # Mantiene compatibilidad con implementación actual
+        # Orden por defecto: Inclusiones -> Jinja2 -> Variables SQL
+        # Mantiene compatibilidad con implementacion actual
         return _process_default_order(input_file, variables, skip_var, verbose)
 
 
 def _process_default_order(input_file, variables, skip_var, verbose):
-    """Orden: Inclusiones → Jinja2 → Variables SQL (comportamiento actual)"""
+    """Orden: Inclusiones -> Jinja2 -> Variables SQL (comportamiento actual)"""
     # Primero resolver inclusiones @ y @@
     if verbose:
         print("Resolviendo inclusiones de archivos...")
-    print("Árbol de inclusiones:")
-    full_content = parse_sqlplus_file(input_file, verbose=verbose)
+    print("Arbol de inclusiones:")
+    # Calcular la ruta base del archivo de entrada
+    import os
+    base_path = os.path.dirname(os.path.abspath(input_file))
+    full_content = parse_sqlplus_file(input_file, base_path, verbose=verbose)
     
     # Luego procesar plantillas Jinja2
     if verbose:
@@ -303,7 +309,7 @@ def _process_default_order(input_file, variables, skip_var, verbose):
 
 
 def _process_jinja2_first(input_file, variables, skip_var, verbose):
-    """Orden: Jinja2 → Inclusiones → Variables SQL"""
+    """Orden: Jinja2 -> Inclusiones -> Variables SQL"""
     # Primero leer el archivo principal sin resolver inclusiones
     if verbose:
         print("Leyendo archivo principal...")
@@ -331,7 +337,7 @@ def _process_jinja2_first(input_file, variables, skip_var, verbose):
         # Ahora resolver inclusiones desde el archivo temporal
         if verbose:
             print("Resolviendo inclusiones de archivos...")
-        print("Árbol de inclusiones:")
+        print("Arbol de inclusiones:")
         full_content = parse_sqlplus_file(temp_path, base_path, verbose=verbose)
         
         # Finalmente procesar variables SQL si no se omite
@@ -348,7 +354,7 @@ def _process_jinja2_first(input_file, variables, skip_var, verbose):
 
 
 def _process_includes_last(input_file, variables, skip_var, verbose):
-    """Orden: Variables SQL → Jinja2 → Inclusiones"""
+    """Orden: Variables SQL -> Jinja2 -> Inclusiones"""
     # Primero leer el archivo principal
     if verbose:
         print("Leyendo archivo principal...")
@@ -382,7 +388,7 @@ def _process_includes_last(input_file, variables, skip_var, verbose):
     try:
         if verbose:
             print("Resolviendo inclusiones de archivos...")
-        print("Árbol de inclusiones:")
+        print("Arbol de inclusiones:")
         final_content = parse_sqlplus_file(temp_path, base_path, verbose=verbose)
         return final_content
     finally:
@@ -413,19 +419,19 @@ def process_content_with_both_engines(content, variables=None, verbose=False):
     return final_content
 
 
-# 5. Configuración de argparse y ejecución
+# 5. Configuracion de argparse y ejecucion
 def main():
     parser = CustomArgumentParser(description='Procesa un script de SQL*Plus, resolviendo inclusiones y sustituyendo variables.')
     
-    # Opción para saltar el procesamiento de variables -sv / --skip-var
+    # Opcion para saltar el procesamiento de variables -sv / --skip-var
     parser.add_argument('--skip-var', '-sv', action='store_true',
-                        help='Omite el proceso de sustitución de variables. Solo resuelve inclusiones @ y @@.')
+                        help='Omite el proceso de sustitucion de variables. Solo resuelve inclusiones @ y @@.')
 
-    # Opción para activar el modo verbose -v / --verbose
+    # Opcion para activar el modo verbose -v / --verbose
     parser.add_argument('--verbose', '-v', action='store_true',
-                        help='Muestra información detallada sobre el procesamiento interno (modo verbose).')
+                        help='Muestra informacion detallada sobre el procesamiento interno (modo verbose).')
     
-    # Opción para habilitar procesamiento de plantillas Jinja2
+    # Opcion para habilitar procesamiento de plantillas Jinja2
     parser.add_argument('--jinja2', '-j', action='store_true',
                         help='Habilita el procesamiento de plantillas Jinja2 antes de las variables SQL.')
     
@@ -437,11 +443,11 @@ def main():
     parser.add_argument('--processing-order', '-po', type=str, 
                         choices=['default', 'jinja2_first', 'includes_last'],
                         default='default',
-                        help='Orden de procesamiento: default (inclusiones→jinja2→sql), jinja2_first (jinja2→inclusiones→sql), includes_last (sql→jinja2→inclusiones).')
+                        help='Orden de procesamiento: default (inclusiones->jinja2->sql), jinja2_first (jinja2->inclusiones->sql), includes_last (sql->jinja2->inclusiones).')
     
     # Argumentos de entrada y salida (renombrados a --input y --output)
     parser.add_argument('--input', '-i', required=True, help='El archivo de entrada a procesar')
-    parser.add_argument('--output', '-o', required=True, help='El archivo donde se escribirá el resultado')
+    parser.add_argument('--output', '-o', required=True, help='El archivo donde se escribira el resultado')
 
     args = parser.parse_args()
 
@@ -455,7 +461,7 @@ def main():
             if args.verbose:
                 print(f"Variables Jinja2 cargadas desde: {args.jinja2_vars}")
         
-        # Ejecutar el proceso según las opciones
+        # Ejecutar el proceso segun las opciones
         if args.jinja2:
             # Usar el procesamiento con Jinja2
             result = process_file_with_jinja2_replacements(
@@ -477,11 +483,15 @@ def main():
 
     except FileNotFoundError as e:
         print(f"Error: {e}")
+        return 1
     except ValueError as e:
         print(f"Error de procesamiento: {e}")
+        return 1
     except Exception as e:
         print(f"Error: {e}")
+        return 1
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())
