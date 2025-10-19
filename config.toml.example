@@ -1,0 +1,66 @@
+# Example configuration file for MergeSourceFile
+# Copy this file to config.toml and customize for your project
+#
+# Usage: mergesourcefile --config config.toml
+
+[mergesourcefile]
+# Required: Input SQL*Plus file to process
+input = "main.sql"
+
+# Required: Output file where the result will be written
+output = "merged.sql"
+
+# Optional: Skip variable substitution (default: false)
+# Set to true to only resolve file inclusions (@ and @@)
+skip_var = false
+
+# Optional: Enable verbose mode for detailed processing information (default: false)
+verbose = false
+
+# Optional: Enable Jinja2 template processing (default: false)
+jinja2 = false
+
+# Optional: Path to JSON file with variables for Jinja2 templates
+# Only used when jinja2 = true
+# jinja2_vars = "vars.json"
+
+# Optional: Processing order (default: "default")
+# Options:
+#   - "default": File Inclusions → Jinja2 Templates → SQL Variables
+#   - "jinja2_first": Jinja2 Templates → File Inclusions → SQL Variables
+#   - "includes_last": SQL Variables → Jinja2 Templates → File Inclusions
+processing_order = "default"
+
+
+# ============================================================================
+# Example configurations for different scenarios
+# ============================================================================
+
+# Example 1: Basic SQL processing with variable substitution
+# [mergesourcefile]
+# input = "main.sql"
+# output = "output.sql"
+
+# Example 2: Only resolve file inclusions, skip variables
+# [mergesourcefile]
+# input = "main.sql"
+# output = "output.sql"
+# skip_var = true
+# verbose = true
+
+# Example 3: Full Jinja2 template processing with variables
+# [mergesourcefile]
+# input = "template.sql"
+# output = "output.sql"
+# jinja2 = true
+# jinja2_vars = "vars.json"
+# processing_order = "jinja2_first"
+# verbose = true
+
+# Example 4: Production environment with specific processing order
+# [mergesourcefile]
+# input = "deploy.sql"
+# output = "deploy_production.sql"
+# jinja2 = true
+# jinja2_vars = "prod_vars.json"
+# processing_order = "default"
