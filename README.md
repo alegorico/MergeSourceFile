@@ -28,7 +28,7 @@ pip install MergeSourceFile
 
 - ✨ **TOML Configuration Support**: New `--config` / `-c` parameter to read settings from a TOML file
 - 🔧 **Configuration File**: Centralized configuration in `config.toml` instead of command-line parameters
-- ⚠️ **Deprecation Warning**: Traditional command-line parameters now show deprecation warning
+- ⚠️ **Deprecation Warning**: Traditional command-line parameters now show a deprecation warning
 - 🔒 **Mutual Exclusivity**: Config file and command-line parameters cannot be used together
 - 📋 **Backward Compatibility**: All existing command-line parameters continue to work
 - 🧪 **Comprehensive Testing**: 11 new tests added (67 total tests passing)
