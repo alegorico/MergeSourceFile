@@ -22,9 +22,17 @@
 
 import re
 import argparse
+import sys
+import warnings
 from pathlib import Path
 from jinja2 import Environment, BaseLoader, StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.exceptions import TemplateError
+
+# Importar el módulo TOML adecuado según la versión de Python
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # Python 3.8-3.10
 
 # Sobrescribir la clase ArgumentParser para modificar los mensajes predeterminados
 class CustomArgumentParser(argparse.ArgumentParser):
@@ -439,9 +447,53 @@ def process_content_with_both_engines(content, variables=None, verbose=False):
     return final_content
 
 
+def load_toml_config(config_file):
+    """
+    Carga la configuración desde un archivo TOML.
+    
+    Args:
+        config_file (str): Ruta al archivo de configuración TOML
+    
+    Returns:
+        dict: Diccionario con los parámetros de configuración
+    
+    Raises:
+        FileNotFoundError: Si el archivo no existe
+        Exception: Si hay errores de sintaxis TOML o campos requeridos faltantes
+    """
+    config_path = Path(config_file)
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"Archivo de configuración no encontrado: {config_file}")
+    
+    try:
+        with open(config_path, 'rb') as f:
+            config_data = tomllib.load(f)
+    except Exception as e:
+        raise Exception(f"Error al parsear el archivo TOML: {e}")
+    
+    # Verificar que existe la sección [mergesourcefile]
+    if 'mergesourcefile' not in config_data:
+        raise Exception("El archivo TOML debe contener una sección [mergesourcefile]")
+    
+    config = config_data['mergesourcefile']
+    
+    # Verificar campos requeridos
+    if 'input' not in config:
+        raise Exception("El archivo de configuración debe contener el campo 'input'")
+    if 'output' not in config:
+        raise Exception("El archivo de configuración debe contener el campo 'output'")
+    
+    return config
+
+
 # 5. Configuracion de argparse y ejecucion
 def main():
     parser = CustomArgumentParser(description='Procesa un script de SQL*Plus, resolviendo inclusiones y sustituyendo variables.')
+    
+    # Nuevo parámetro para archivo de configuración TOML
+    parser.add_argument('--config', '-c', type=str,
+                        help='Archivo de configuración TOML. Si se usa, los demás parámetros de línea de comandos no deben ser especificados.')
     
     # Opcion para saltar el procesamiento de variables -sv / --skip-var
     parser.add_argument('--skip-var', '-sv', action='store_true',
@@ -466,40 +518,101 @@ def main():
                         help='Orden de procesamiento: default (inclusiones->jinja2->sql), jinja2_first (jinja2->inclusiones->sql), includes_last (sql->jinja2->inclusiones).')
     
     # Argumentos de entrada y salida (renombrados a --input y --output)
-    parser.add_argument('--input', '-i', required=True, help='El archivo de entrada a procesar')
-    parser.add_argument('--output', '-o', required=True, help='El archivo donde se escribira el resultado')
+    # Ahora no son required por defecto, ya que pueden venir del archivo de configuración
+    parser.add_argument('--input', '-i', help='El archivo de entrada a procesar')
+    parser.add_argument('--output', '-o', help='El archivo donde se escribira el resultado')
 
     args = parser.parse_args()
+    
+    # Lógica para manejar el archivo de configuración vs parámetros de línea de comandos
+    if args.config:
+        # Si se usa --config, verificar que no se usen otros parámetros de línea de comandos
+        cli_params_used = [
+            args.input, args.output, args.skip_var, args.verbose,
+            args.jinja2, args.jinja2_vars, 
+            args.processing_order != 'default'  # Solo contar si se cambió del default
+        ]
+        
+        if any(cli_params_used):
+            print("Error: Cuando se usa --config, no se pueden usar otros parámetros de línea de comandos.", file=sys.stderr)
+            return 1
+        
+        # Cargar configuración desde archivo TOML
+        try:
+            config = load_toml_config(args.config)
+            
+            # Extraer parámetros del archivo de configuración
+            input_file = config['input']
+            output_file = config['output']
+            skip_var = config.get('skip_var', False)
+            verbose = config.get('verbose', False)
+            jinja2_enabled = config.get('jinja2', False)
+            jinja2_vars_file = config.get('jinja2_vars', None)
+            processing_order = config.get('processing_order', 'default')
+            
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
+            return 1
+        except Exception as e:
+            print(f"Error al cargar configuración: {e}")
+            return 1
+    else:
+        # Usar parámetros de línea de comandos tradicionales
+        # Mostrar advertencia de deprecación
+        warnings.warn(
+            "ADVERTENCIA: Los parámetros de línea de comandos serán descontinuados en futuras versiones. "
+            "Se recomienda usar un archivo de configuración TOML con --config.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        # Verificar que los parámetros requeridos estén presentes
+        if not args.input:
+            print("Error: El parámetro --input/-i es requerido cuando no se usa --config", file=sys.stderr)
+            parser.print_help()
+            return 1
+        if not args.output:
+            print("Error: El parámetro --output/-o es requerido cuando no se usa --config", file=sys.stderr)
+            parser.print_help()
+            return 1
+        
+        input_file = args.input
+        output_file = args.output
+        skip_var = args.skip_var
+        verbose = args.verbose
+        jinja2_enabled = args.jinja2
+        jinja2_vars_file = args.jinja2_vars
+        processing_order = args.processing_order
 
     try:
         # Cargar variables Jinja2 si se especifica
         jinja2_variables = {}
-        if args.jinja2_vars:
+        if jinja2_vars_file:
             import json
-            with open(args.jinja2_vars, 'r', encoding='utf-8') as f:
+            with open(jinja2_vars_file, 'r', encoding='utf-8') as f:
                 jinja2_variables = json.load(f)
-            if args.verbose:
-                print(f"Variables Jinja2 cargadas desde: {args.jinja2_vars}")
+            if verbose:
+                print(f"Variables Jinja2 cargadas desde: {jinja2_vars_file}")
         
         # Ejecutar el proceso segun las opciones
-        if args.jinja2:
+        if jinja2_enabled:
             # Usar el procesamiento con Jinja2
             result = process_file_with_jinja2_replacements(
-                args.input, 
+                input_file, 
                 jinja2_variables, 
-                args.skip_var, 
-                args.verbose,
-                args.processing_order
+                skip_var, 
+                verbose,
+                processing_order
             )
         else:
             # Usar el procesamiento tradicional
-            result = process_file_with_replacements(args.input, args.skip_var, args.verbose)
+            result = process_file_with_replacements(input_file, skip_var, verbose)
 
         # Escribir el resultado en el archivo de salida
-        with open(args.output, 'w', encoding='utf-8') as output_file:
-            output_file.write(result)
+        with open(output_file, 'w', encoding='utf-8') as output_file_handle:
+            output_file_handle.write(result)
 
-        print(f"Procesamiento completado. Resultado escrito en: {args.output}")
+        print(f"Procesamiento completado. Resultado escrito en: {output_file}")
 
     except FileNotFoundError as e:
         print(f"Error: {e}")
