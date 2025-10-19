@@ -1,6 +1,6 @@
 # MergeSourceFile API Documentation
 
-This document describes the internal API of MergeSourceFile v1.1.1 for developers who want to extend or integrate the functionality.
+This document describes the internal API of MergeSourceFile v1.2.0 for developers who want to extend or integrate the functionality.
 
 ## What's New in v1.2.0
 
