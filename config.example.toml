@@ -1,0 +1,31 @@
+# Archivo de configuración de ejemplo para MergeSourceFile
+# Coloque este archivo en el directorio raíz de su proyecto y ejecútelo con:
+# mergesourcefile --config config.toml
+
+[mergesourcefile]
+# Archivo de entrada a procesar (requerido)
+input = "input.sql"
+
+# Archivo donde se escribirá el resultado (requerido)
+output = "output.sql"
+
+# Omitir el procesamiento de variables de sustitución (opcional, default: false)
+# Cuando es true, solo resuelve inclusiones @ y @@
+skip_var = false
+
+# Activar el modo verbose para información detallada (opcional, default: false)
+verbose = false
+
+# Habilitar el procesamiento de plantillas Jinja2 (opcional, default: false)
+jinja2 = false
+
+# Archivo JSON con variables para las plantillas Jinja2 (opcional)
+# Solo se usa cuando jinja2 = true
+# jinja2_vars = "variables.json"
+
+# Orden de procesamiento (opcional, default: "default")
+# Opciones: "default", "jinja2_first", "includes_last"
+# - default: Inclusiones → Jinja2 → Variables SQL
+# - jinja2_first: Jinja2 → Inclusiones → Variables SQL
+# - includes_last: Variables SQL → Jinja2 → Inclusiones
+processing_order = "default"
