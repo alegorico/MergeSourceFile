@@ -32,6 +32,16 @@ pip install MergeSourceFile
 - 🪟 **Windows Compatibility**: Fixed Unicode encoding issues for full Windows support
 - ✅ **Robust Testing**: 17 new tests added, 56/56 tests passing including full CLI integration
 
+## 🚨 Important: Command-Line Parameters Deprecation Notice
+
+**Starting from the next major version, command-line parameters will be deprecated in favor of TOML configuration files.**
+
+We strongly recommend migrating to the new TOML configuration format:
+- ✅ **Use**: `mergesourcefile --config config.toml` (Recommended)
+- ⚠️ **Deprecated**: `mergesourcefile --input file.sql --output out.sql` (Will be removed in future versions)
+
+See the [TOML Configuration](#toml-configuration-recommended) section below for migration instructions.
+
 ## What's New in v1.1.0
 
 - ✨ **Jinja2 Template Support**: Full integration with Jinja2 templating engine
@@ -41,52 +51,180 @@ pip install MergeSourceFile
 - 📋 **Enhanced CLI**: New command-line options for Jinja2 functionality
 - 🧪 **Comprehensive Testing**: 20+ new tests ensuring reliability
 
+## TOML Configuration (Recommended)
+
+### Why Use TOML Configuration?
+
+TOML configuration files provide several advantages:
+- **Version Control Friendly**: Store your configuration in the repository
+- **Maintainable**: Easier to manage complex configurations
+- **Reusable**: Use the same configuration across different environments
+- **Future-Proof**: Command-line parameters will be deprecated in future versions
+
+### Quick Start with TOML
+
+1. **Create a configuration file** (e.g., `config.toml`):
+
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+skip_var = false
+verbose = false
+jinja2 = false
+processing_order = "default"
+```
+
+2. **Run with the configuration file**:
+
+```bash
+mergesourcefile --config config.toml
+# or using short form:
+mergesourcefile -c config.toml
+```
+
+### TOML Configuration Options
+
+All command-line options are available in TOML format:
+
+```toml
+[mergesourcefile]
+# Required fields
+input = "input.sql"              # Input file to process
+output = "output.sql"            # Output file for results
+
+# Optional fields (with default values)
+skip_var = false                 # Skip variable substitution
+verbose = false                  # Enable verbose mode
+jinja2 = false                   # Enable Jinja2 processing
+jinja2_vars = "vars.json"        # JSON file with Jinja2 variables
+processing_order = "default"     # Processing order: default, jinja2_first, includes_last
+```
+
+### Example Configurations
+
+**Basic Processing**:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+```
+
+**With Jinja2 Templates**:
+```toml
+[mergesourcefile]
+input = "template.sql"
+output = "generated.sql"
+jinja2 = true
+jinja2_vars = "production_vars.json"
+processing_order = "jinja2_first"
+```
+
+**Verbose Mode for Debugging**:
+```toml
+[mergesourcefile]
+input = "debug.sql"
+output = "debug_output.sql"
+verbose = true
+skip_var = false
+```
+
+### Migration from Command-Line Parameters
+
+If you're currently using command-line parameters, migration is simple:
+
+**Before (Deprecated)**:
+```bash
+mergesourcefile --input main.sql --output merged.sql --verbose --jinja2 --jinja2-vars vars.json
+```
+
+**After (Recommended)**:
+
+Create `config.toml`:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+verbose = true
+jinja2 = true
+jinja2_vars = "vars.json"
+```
+
+Run:
+```bash
+mergesourcefile --config config.toml
+```
+
+### Configuration File Location
+
+Place your TOML configuration file:
+- In the root of your project directory
+- Or anywhere else and reference it with the full path: `mergesourcefile --config /path/to/config.toml`
+
+See `config.example.toml` in the repository for a complete example with all available options.
+
 ## Usage
 
-### Command Line
+### Recommended: TOML Configuration File
+
+```bash
+mergesourcefile --config config.toml
+```
+
+See the [TOML Configuration](#toml-configuration-recommended) section for detailed information.
+
+### Legacy: Command Line (Deprecated)
+
+⚠️ **Warning**: Command-line parameters will be deprecated in future versions. Please migrate to TOML configuration.
 
 ```bash
 mergesourcefile --input input.sql --output output.sql
 ```
 
-### Options
+### Options (Legacy Command-Line)
 
-- `--input, -i`: Input SQL*Plus file to process (required)
-- `--output, -o`: Output file where the result will be written (required)
-- `--skip-var, -sv`: Skip variable substitution, only resolve file inclusions
-- `--verbose, -v`: Enable verbose mode for detailed processing information
-- `--jinja2`: Enable Jinja2 template processing
-- `--jinja2-vars`: JSON string with variables for Jinja2 template processing
-- `--processing-order`: Choose processing order: `default`, `jinja2_first`, or `includes_last`
+- `--config, -c`: **RECOMMENDED** - Load configuration from TOML file
+- `--input, -i`: Input SQL*Plus file to process (deprecated, use TOML config)
+- `--output, -o`: Output file where the result will be written (deprecated, use TOML config)
+- `--skip-var, -sv`: Skip variable substitution, only resolve file inclusions (deprecated, use TOML config)
+- `--verbose, -v`: Enable verbose mode for detailed processing information (deprecated, use TOML config)
+- `--jinja2`: Enable Jinja2 template processing (deprecated, use TOML config)
+- `--jinja2-vars`: JSON string with variables for Jinja2 template processing (deprecated, use TOML config)
+- `--processing-order`: Choose processing order: `default`, `jinja2_first`, or `includes_last` (deprecated, use TOML config)
 
 ### Examples
 
-1. **Process a SQL file with full processing**:
+1. **Recommended: Use TOML configuration**:
+   ```bash
+   mergesourcefile --config config.toml
+   ```
+
+2. **Legacy: Process a SQL file with full processing** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql
    ```
 
-2. **Process only file inclusions, skip variable substitution**:
+3. **Legacy: Process only file inclusions, skip variable substitution** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql --skip-var
    ```
 
-3. **Process with verbose output**:
+4. **Legacy: Process with verbose output** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql --verbose
    ```
 
-4. **🆕 Process with Jinja2 template support**:
+5. **Legacy: Process with Jinja2 template support** (deprecated):
    ```bash
    mergesourcefile -i template.sql -o merged.sql --jinja2
    ```
 
-5. **🆕 Process with Jinja2 variables**:
+6. **Legacy: Process with Jinja2 variables** (deprecated):
    ```bash
    mergesourcefile -i template.sql -o merged.sql --jinja2 --jinja2-vars '{"environment": "production", "table_suffix": "_prod"}'
    ```
 
-6. **🆕 Process with Jinja2-first processing order**:
+7. **Legacy: Process with Jinja2-first processing order** (deprecated):
    ```bash
    mergesourcefile -i template.sql -o merged.sql --jinja2 --processing-order jinja2_first
    ```

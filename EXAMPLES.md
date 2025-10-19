@@ -1,6 +1,146 @@
 # MergeSourceFile - Practical Examples
 
-This document provides practical examples of using MergeSourceFile v1.1.1 with enhanced DEFINE support and Jinja2 integration.
+This document provides practical examples of using MergeSourceFile v1.2.0 with TOML configuration support, enhanced DEFINE support, and Jinja2 integration.
+
+## 🆕 TOML Configuration Examples (Recommended)
+
+### Example 1: Basic TOML Configuration
+
+**config.toml**:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+skip_var = false
+verbose = false
+```
+
+**Command**:
+```bash
+mergesourcefile --config config.toml
+```
+
+This is the **recommended way** to use MergeSourceFile. Command-line parameters are deprecated and will be removed in future versions.
+
+### Example 2: TOML Configuration with Jinja2
+
+**config.toml**:
+```toml
+[mergesourcefile]
+input = "template.sql"
+output = "generated.sql"
+jinja2 = true
+jinja2_vars = "production_vars.json"
+processing_order = "jinja2_first"
+verbose = true
+```
+
+**production_vars.json**:
+```json
+{
+  "environment": "production",
+  "database": "PROD_DB",
+  "schema": "APP_SCHEMA",
+  "table_prefix": "PROD"
+}
+```
+
+**template.sql**:
+```sql
+-- Generated for {{ environment | upper }} environment
+-- Database: {{ database }}
+
+{% if environment == 'production' %}
+@production_settings.sql
+{% else %}
+@development_settings.sql
+{% endif %}
+
+DEFINE schema={{ schema }};
+DEFINE prefix={{ table_prefix }};
+
+CREATE TABLE &prefix._USERS (
+    id NUMBER PRIMARY KEY,
+    environment VARCHAR2(50) DEFAULT '{{ environment }}'
+);
+```
+
+**Command**:
+```bash
+mergesourcefile --config config.toml
+```
+
+### Example 3: Multiple Environment Configurations
+
+Create different TOML files for each environment:
+
+**config.dev.toml**:
+```toml
+[mergesourcefile]
+input = "app.sql"
+output = "app_dev.sql"
+jinja2 = true
+jinja2_vars = "dev_vars.json"
+verbose = true
+```
+
+**config.prod.toml**:
+```toml
+[mergesourcefile]
+input = "app.sql"
+output = "app_prod.sql"
+jinja2 = true
+jinja2_vars = "prod_vars.json"
+verbose = false
+```
+
+**Commands**:
+```bash
+# For development
+mergesourcefile --config config.dev.toml
+
+# For production
+mergesourcefile --config config.prod.toml
+```
+
+### Example 4: Skip Variable Processing
+
+When you only want to resolve file inclusions without processing DEFINE variables:
+
+**config.toml**:
+```toml
+[mergesourcefile]
+input = "includes_only.sql"
+output = "merged_includes.sql"
+skip_var = true
+verbose = false
+```
+
+**Command**:
+```bash
+mergesourcefile --config config.toml
+```
+
+### Example 5: Debugging with Verbose Mode
+
+**config.toml**:
+```toml
+[mergesourcefile]
+input = "debug.sql"
+output = "debug_output.sql"
+verbose = true
+skip_var = false
+```
+
+**Command**:
+```bash
+mergesourcefile --config config.toml
+```
+
+This will show detailed information about:
+- Which files are being included
+- Which variables are being defined
+- Which variables are being replaced and where
 
 ## New in v1.1.1: Enhanced DEFINE Syntax
 
