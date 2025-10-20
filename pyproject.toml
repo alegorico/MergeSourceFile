@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     {name = "Alejandro G."}
 ]
-license = "MIT"
+license = {text = "MIT"}
 keywords = ["sqlplus", "sql", "oracle", "script-processor", "file-merger"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
