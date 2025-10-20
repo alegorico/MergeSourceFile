@@ -1,6 +1,6 @@
 language: python
 
-# Python versions to test
+# Python versions to test (updated for CI activation)
 python:
   - "3.8"
   - "3.9"
