@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-20
+
+### Added
+- **🚀 TOML Configuration Support**
+  - New `--config/-c` parameter to load configuration from TOML files
+  - Complete configuration via TOML eliminates need for command-line parameters
+  - Supports all application options: input, output, skip_var, verbose, jinja2, jinja2_vars, processing_order
+  - Automatic validation of required parameters (input/output)
+  - Warning system when both TOML config and command-line parameters are provided
+  - Compatible with Python 3.11+ (built-in tomllib) and Python 3.8-3.10 (via tomli dependency)
+
+- **Continuous Integration with CircleCI**
+  - Complete CircleCI configuration for automated testing across Python 3.8-3.12
+  - Multi-version Python testing with coverage reporting
+  - Automated codecov integration for coverage tracking
+  - Matrix testing ensures compatibility across all supported Python versions
+
+### Example TOML Configuration
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+skip_var = false
+verbose = true
+jinja2 = true
+jinja2_vars = "variables.json"
+processing_order = "jinja2_first"
+```
+
+### Changed
+- **Enhanced command-line interface**
+  - Configuration precedence: TOML config overrides all command-line parameters
+  - Improved error messages for missing required parameters
+  - Better integration between TOML and command-line workflows
+
+- **Build system improvements**
+  - Updated setuptools compatibility to support both CI environments and local development
+  - Improved pyproject.toml configuration for better PEP 621 compliance
+  - Enhanced build dependencies management for consistent builds
+
+### Fixed
+- **CI/CD pipeline stability**
+  - Resolved setuptools version conflicts between local and CI environments
+  - Fixed license format compatibility issues with different setuptools versions
+  - Improved build reliability and reproducibility
+  - Enhanced error reporting during CI builds
+
 ## [1.1.1] - 2025-10-17
 
 ### Enhanced
