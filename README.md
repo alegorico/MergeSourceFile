@@ -173,7 +173,7 @@ Place your TOML configuration file:
 - In the root of your project directory
 - Or anywhere else and reference it with the full path: `mergesourcefile --config /path/to/config.toml`
 
-See `config.example.toml` in the repository for a complete example with all available options.
+See the [Configuration Guide](CONFIGURATION.md) for a complete reference with all available options and examples.
 
 ## Usage
 
