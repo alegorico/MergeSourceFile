@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -37,7 +37,7 @@ dependencies = [
 dev = [
     "build>=1.0.0",
     "twine>=4.0.0",
-    "setuptools>=61.0",
+    "setuptools>=77.0.0",
     "wheel>=0.40.0",
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
