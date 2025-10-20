@@ -1,6 +1,14 @@
 # MergeSourceFile API Documentation
 
-This document describes the internal API of MergeSourceFile v1.1.1 for developers who want to extend or integrate the functionality.
+This document describes the internal API of MergeSourceFile v1.2.0 for developers who want to extend or integrate the functionality.
+
+## What's New in v1.2.0
+
+### TOML Configuration Support
+- **New `--config/-c` parameter**: Load all settings from a TOML configuration file
+- **Deprecation warnings**: Command-line parameters will show deprecation warnings
+- **Mutual exclusivity**: Config file and command-line parameters are properly handled
+- **Enhanced testing**: 12 new tests for TOML configuration functionality
 
 ## What's New in v1.1.1
 
@@ -15,6 +23,43 @@ This document describes the internal API of MergeSourceFile v1.1.1 for developer
 - **Robust testing**: All 56 tests now pass on all platforms
 
 ## Core Classes and Functions
+
+### Configuration Functions
+
+#### `load_config_from_toml(config_file)`
+Loads configuration from a TOML file.
+
+**Parameters:**
+- `config_file` (str): Path to the TOML configuration file
+
+**Returns:**
+- `dict`: Configuration dictionary with all settings
+
+**Raises:**
+- `FileNotFoundError`: When the configuration file doesn't exist
+- `ValueError`: When the TOML file is invalid or missing required sections
+- `ImportError`: When tomllib/tomli is not available (Python < 3.11)
+
+**Example:**
+```python
+from MergeSourceFile.main import load_config_from_toml
+
+config = load_config_from_toml("config.toml")
+print(config['input'])   # Access configuration values
+print(config['output'])
+```
+
+**TOML File Structure:**
+```toml
+[mergesourcefile]
+input = "input.sql"
+output = "output.sql"
+skip_var = false
+verbose = false
+jinja2 = false
+jinja2_vars = "vars.json"
+processing_order = "default"
+```
 
 ### Main Processing Functions
 

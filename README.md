@@ -24,6 +24,15 @@ This is a Python project that includes a script capable of processing SQL*Plus s
 pip install MergeSourceFile
 ```
 
+## What's New in v1.2.0
+
+- ✨ **TOML Configuration Support**: New `--config` / `-c` parameter to read settings from a TOML file
+- 🔧 **Configuration File**: Centralized configuration in `config.toml` instead of command-line parameters
+- ⚠️ **Deprecation Warning**: Traditional command-line parameters now show a deprecation warning
+- 🔒 **Mutual Exclusivity**: Config file and command-line parameters cannot be used together
+- 📋 **Backward Compatibility**: All existing command-line parameters continue to work
+- 🧪 **Comprehensive Testing**: 11 new tests added (67 total tests passing)
+
 ## What's New in v1.1.1
 
 - 🐛 **DEFINE Bug Fixes**: Critical fix for DEFINE statements without quotes (e.g., `DEFINE VAR = value`)
@@ -31,6 +40,16 @@ pip install MergeSourceFile
 - 📊 **Better Error Reporting**: Verbose mode now shows ignored DEFINE statements with line numbers
 - 🪟 **Windows Compatibility**: Fixed Unicode encoding issues for full Windows support
 - ✅ **Robust Testing**: 17 new tests added, 56/56 tests passing including full CLI integration
+
+## 🚨 Important: Command-Line Parameters Deprecation Notice
+
+**Starting from the next major version, command-line parameters will be deprecated in favor of TOML configuration files.**
+
+We strongly recommend migrating to the new TOML configuration format:
+- ✅ **Use**: `mergesourcefile --config config.toml` (Recommended)
+- ⚠️ **Deprecated**: `mergesourcefile --input file.sql --output out.sql` (Will be removed in future versions)
+
+See the [TOML Configuration](#toml-configuration-recommended) section below for migration instructions.
 
 ## What's New in v1.1.0
 
@@ -41,52 +60,209 @@ pip install MergeSourceFile
 - 📋 **Enhanced CLI**: New command-line options for Jinja2 functionality
 - 🧪 **Comprehensive Testing**: 20+ new tests ensuring reliability
 
+## TOML Configuration (Recommended)
+
+### Why Use TOML Configuration?
+
+TOML configuration files provide several advantages:
+- **Version Control Friendly**: Store your configuration in the repository
+- **Maintainable**: Easier to manage complex configurations
+- **Reusable**: Use the same configuration across different environments
+- **Future-Proof**: Command-line parameters will be deprecated in future versions
+
+### Quick Start with TOML
+
+1. **Create a configuration file** (e.g., `config.toml`):
+
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+skip_var = false
+verbose = false
+jinja2 = false
+processing_order = "default"
+```
+
+2. **Run with the configuration file**:
+
+```bash
+mergesourcefile --config config.toml
+# or using short form:
+mergesourcefile -c config.toml
+```
+
+### TOML Configuration Options
+
+All command-line options are available in TOML format:
+
+```toml
+[mergesourcefile]
+# Required fields
+input = "input.sql"              # Input file to process
+output = "output.sql"            # Output file for results
+
+# Optional fields (with default values)
+skip_var = false                 # Skip variable substitution
+verbose = false                  # Enable verbose mode
+jinja2 = false                   # Enable Jinja2 processing
+jinja2_vars = "vars.json"        # JSON file with Jinja2 variables
+processing_order = "default"     # Processing order: default, jinja2_first, includes_last
+```
+
+### Example Configurations
+
+**Basic Processing**:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+```
+
+**With Jinja2 Templates**:
+```toml
+[mergesourcefile]
+input = "template.sql"
+output = "generated.sql"
+jinja2 = true
+jinja2_vars = "production_vars.json"
+processing_order = "jinja2_first"
+```
+
+**Verbose Mode for Debugging**:
+```toml
+[mergesourcefile]
+input = "debug.sql"
+output = "debug_output.sql"
+verbose = true
+skip_var = false
+```
+
+### Migration from Command-Line Parameters
+
+If you're currently using command-line parameters, migration is simple:
+
+**Before (Deprecated)**:
+```bash
+mergesourcefile --input main.sql --output merged.sql --verbose --jinja2 --jinja2-vars vars.json
+```
+
+**After (Recommended)**:
+
+Create `config.toml`:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+verbose = true
+jinja2 = true
+jinja2_vars = "vars.json"
+```
+
+Run:
+```bash
+mergesourcefile --config config.toml
+```
+
+### Configuration File Location
+
+Place your TOML configuration file:
+- In the root of your project directory
+- Or anywhere else and reference it with the full path: `mergesourcefile --config /path/to/config.toml`
+
+See `config.example.toml` in the repository for a complete example with all available options.
+
 ## Usage
 
-### Command Line
+### Recommended: TOML Configuration File
+
+```bash
+mergesourcefile --config config.toml
+```
+
+See the [TOML Configuration](#toml-configuration-recommended) section for detailed information.
+
+### Legacy: Command Line (Deprecated)
+
+⚠️ **Warning**: Command-line parameters will be deprecated in future versions. Please migrate to TOML configuration.
 
 ```bash
 mergesourcefile --input input.sql --output output.sql
 ```
 
-### Options
+### Options (Legacy Command-Line)
 
-- `--input, -i`: Input SQL*Plus file to process (required)
-- `--output, -o`: Output file where the result will be written (required)
-- `--skip-var, -sv`: Skip variable substitution, only resolve file inclusions
-- `--verbose, -v`: Enable verbose mode for detailed processing information
-- `--jinja2`: Enable Jinja2 template processing
-- `--jinja2-vars`: JSON string with variables for Jinja2 template processing
-- `--processing-order`: Choose processing order: `default`, `jinja2_first`, or `includes_last`
+- `--config, -c`: **RECOMMENDED** - Load configuration from TOML file
+- `--input, -i`: Input SQL*Plus file to process (deprecated, use TOML config)
+- `--output, -o`: Output file where the result will be written (deprecated, use TOML config)
+- `--skip-var, -sv`: Skip variable substitution, only resolve file inclusions (deprecated, use TOML config)
+- `--verbose, -v`: Enable verbose mode for detailed processing information (deprecated, use TOML config)
+- `--jinja2`: Enable Jinja2 template processing (deprecated, use TOML config)
+- `--jinja2-vars`: JSON string with variables for Jinja2 template processing (deprecated, use TOML config)
+- `--processing-order`: Choose processing order: `default`, `jinja2_first`, or `includes_last` (deprecated, use TOML config)
+
+### TOML Configuration File Format
+
+Create a `config.toml` file in your project directory:
+
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "merged.sql"
+
+# Optional parameters
+skip_var = false        # Set to true to skip variable substitution
+verbose = false         # Set to true for detailed processing information
+jinja2 = false          # Set to true to enable Jinja2 template processing
+jinja2_vars = ""        # Path to JSON file with Jinja2 variables
+processing_order = "default"  # Options: default, jinja2_first, includes_last
+```
+
+Example with Jinja2 support:
+
+```toml
+[mergesourcefile]
+input = "template.sql"
+output = "output.sql"
+jinja2 = true
+jinja2_vars = "vars.json"
+processing_order = "jinja2_first"
+verbose = true
+```
 
 ### Examples
 
-1. **Process a SQL file with full processing**:
+1. **Recommended: Use TOML configuration**:
+   ```bash
+   mergesourcefile --config config.toml
+   ```
+
+2. **Legacy: Process a SQL file with full processing** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql
    ```
 
-2. **Process only file inclusions, skip variable substitution**:
+3. **Legacy: Process only file inclusions, skip variable substitution** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql --skip-var
    ```
 
-3. **Process with verbose output**:
+4. **Legacy: Process with verbose output** (deprecated):
    ```bash
    mergesourcefile -i main.sql -o merged.sql --verbose
    ```
 
-4. **🆕 Process with Jinja2 template support**:
+5. **Legacy: Process with Jinja2 template support** (deprecated):
    ```bash
    mergesourcefile -i template.sql -o merged.sql --jinja2
    ```
 
-5. **🆕 Process with Jinja2 variables**:
+6. **Legacy: Process with Jinja2 variables** (deprecated):
    ```bash
-   mergesourcefile -i template.sql -o merged.sql --jinja2 --jinja2-vars '{"environment": "production", "table_suffix": "_prod"}'
+   mergesourcefile -i template.sql -o merged.sql --jinja2 --jinja2-vars vars.json
    ```
 
-6. **🆕 Process with Jinja2-first processing order**:
+7. **Legacy: Process with Jinja2-first processing order** (deprecated):
    ```bash
    mergesourcefile -i template.sql -o merged.sql --jinja2 --processing-order jinja2_first
    ```
@@ -225,6 +401,64 @@ You can gradually adopt Jinja2 features:
 3. Use loops for repetitive structures: `{% for item in list %}`
 4. Apply custom filters: `{{ value | sql_escape }}`
 5. Experiment with processing orders for complex scenarios
+
+## Migration from v1.1.x to v1.2.0
+
+### Migrating to TOML Configuration
+
+The new TOML configuration file approach offers a cleaner, more maintainable way to manage your MergeSourceFile settings. While command-line parameters are still supported, they will be deprecated in future versions.
+
+#### Step 1: Create a TOML Configuration File
+
+Instead of:
+```bash
+mergesourcefile -i main.sql -o output.sql --verbose --skip-var
+```
+
+Create a `config.toml` file:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "output.sql"
+verbose = true
+skip_var = true
+```
+
+Then run:
+```bash
+mergesourcefile --config config.toml
+```
+
+#### Step 2: Migrating Jinja2 Configurations
+
+For projects using Jinja2, instead of:
+```bash
+mergesourcefile -i template.sql -o output.sql --jinja2 --jinja2-vars vars.json --processing-order jinja2_first
+```
+
+Use a TOML config:
+```toml
+[mergesourcefile]
+input = "template.sql"
+output = "output.sql"
+jinja2 = true
+jinja2_vars = "vars.json"
+processing_order = "jinja2_first"
+```
+
+#### Benefits of TOML Configuration
+
+1. **Version Control Friendly**: Configuration files can be committed to your repository
+2. **Project-Specific Settings**: Each project can have its own `config.toml`
+3. **Cleaner Scripts**: Simplifies build scripts and CI/CD pipelines
+4. **Self-Documenting**: Configuration files are easier to read and understand
+5. **No Shell Escaping**: Avoid issues with special characters in command-line parameters
+
+#### Deprecation Timeline
+
+- **v1.2.0**: TOML configuration introduced, deprecation warning added for command-line parameters
+- **v1.3.0** (planned): Increased warning severity
+- **v2.0.0** (future): Command-line parameters may be removed entirely
 
 ## Best Practices
 
