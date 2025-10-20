@@ -1,6 +1,6 @@
 # MergeSourceFile 
 
-[![Build Status](https://travis-ci.com/alegorico/MergeSourceFile.svg?branch=main)](https://travis-ci.com/alegorico/MergeSourceFile)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/alegorico/MergeSourceFile/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/alegorico/MergeSourceFile/tree/main)
 [![codecov](https://codecov.io/gh/alegorico/MergeSourceFile/branch/main/graph/badge.svg)](https://codecov.io/gh/alegorico/MergeSourceFile)
 
 A Python tool to process SQL*Plus scripts with Jinja2 template support, resolving file inclusions and variable substitutions.

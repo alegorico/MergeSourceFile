@@ -1,0 +1,60 @@
+version: 2.1
+
+# Orbs provide pre-packaged functionality
+orbs:
+  python: circleci/python@2.1.1
+  codecov: codecov/codecov@4.0.1
+
+# Define workflows
+workflows:
+  test-workflow:
+    jobs:
+      - test-python-38
+      - test-python-39
+      - test-python-310
+      - test-python-311
+      - test-python-312
+
+# Define jobs
+jobs:
+  test-python-38: &test-template
+    docker:
+      - image: cimg/python:3.8
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          args: --upgrade pip setuptools wheel
+      - run:
+          name: Install project dependencies
+          command: pip install -e ".[dev]"
+      - run:
+          name: Run tests with coverage
+          command: |
+            python -m pytest tests/ -v --cov=MergeSourceFile --cov-report=xml --cov-report=term-missing
+      - codecov/upload:
+          file: coverage.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: coverage.xml
+
+  test-python-39:
+    <<: *test-template
+    docker:
+      - image: cimg/python:3.9
+
+  test-python-310:
+    <<: *test-template
+    docker:
+      - image: cimg/python:3.10
+
+  test-python-311:
+    <<: *test-template
+    docker:
+      - image: cimg/python:3.11
+
+  test-python-312:
+    <<: *test-template
+    docker:
+      - image: cimg/python:3.12
