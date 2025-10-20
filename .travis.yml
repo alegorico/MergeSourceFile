@@ -15,7 +15,7 @@ install:
 
 # Run tests
 script:
-  - pytest tests/ -v --cov=MergeSourceFile --cov-report=term-missing
+  - pytest
 
 # Additional configuration
 cache:
