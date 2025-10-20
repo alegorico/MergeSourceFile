@@ -24,3 +24,8 @@ cache:
 # Notifications (optional, can be configured later)
 notifications:
   email: false
+
+# Branch a verificar
+branches:
+  only:
+    - main
