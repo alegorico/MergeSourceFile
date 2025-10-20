@@ -8,14 +8,23 @@ python:
   - "3.11"
   - "3.12"
 
+# Sistema operativo (opcional - agregar Windows si lo necesitas)
+os:
+  - linux
+
 # Install dependencies
 install:
-  - pip install --upgrade pip
+  - pip install --upgrade pip setuptools wheel
   - pip install -e ".[dev]"
 
 # Run tests
 script:
-  - pytest
+  - python -m pytest tests/ -v --cov=MergeSourceFile --cov-report=term-missing
+
+# Después de tests exitosos (opcional - para coverage)
+after_success:
+  - pip install codecov
+  - codecov
 
 # Additional configuration
 cache:
@@ -25,7 +34,9 @@ cache:
 notifications:
   email: false
 
-# Branch a verificar
+# Branch a verificar - agregadas más ramas
 branches:
   only:
     - main
+    - develop
+    - /^v\d+\.\d+\.\d+$/  # Tags de versión como v1.2.3
