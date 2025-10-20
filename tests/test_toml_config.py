@@ -99,8 +99,8 @@ class TestTOMLConfigIntegration:
         config_file = temp_dir / "config.toml"
         config_file.write_text(f"""
 [mergesourcefile]
-input = "{input_file}"
-output = "{output_file}"
+input = "{str(input_file).replace(chr(92), '/')}"
+output = "{str(output_file).replace(chr(92), '/')}"
 skip_var = false
 verbose = false
 """, encoding='utf-8')
@@ -129,8 +129,8 @@ SELECT * FROM &schema..users;""", encoding='utf-8')
         config_file = temp_dir / "config.toml"
         config_file.write_text(f"""
 [mergesourcefile]
-input = "{input_file}"
-output = "{output_file}"
+input = "{str(input_file).replace(chr(92), '/')}"
+output = "{str(output_file).replace(chr(92), '/')}"
 skip_var = false
 verbose = false
 """, encoding='utf-8')
@@ -177,8 +177,8 @@ input = "input.sql"
         config_file = temp_dir / "config.toml"
         config_file.write_text(f"""
 [mergesourcefile]
-input = "{input_file}"
-output = "{output_file}"
+input = "{str(input_file).replace(chr(92), '/')}"
+output = "{str(output_file).replace(chr(92), '/')}"
 """, encoding='utf-8')
         
         # Ejecutar el CLI con --config y parámetros adicionales
@@ -236,8 +236,8 @@ class TestConfigValidation:
         config_file = temp_dir / "config.toml"
         config_file.write_text(f"""
 [mergesourcefile]
-input = "{input_file}"
-output = "{output_file}"
+input = "{str(input_file).replace(chr(92), '/')}"
+output = "{str(output_file).replace(chr(92), '/')}"
 processing_order = "invalid_order"
 """, encoding='utf-8')
         
