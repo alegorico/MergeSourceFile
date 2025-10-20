@@ -192,7 +192,7 @@ output = "{str(output_file).replace(chr(92), '/')}"
         
         assert result.returncode == 0
         # Should show warning about ignored parameters
-        assert "ADVERTENCIA" in result.stderr or "UserWarning" in result.stderr
+        assert "AVISO" in result.stderr
 
 
 class TestDeprecationWarnings:
@@ -217,8 +217,8 @@ class TestDeprecationWarnings:
         
         assert result.returncode == 0
         # Should show deprecation warning
-        assert "ADVERTENCIA" in result.stderr or "DeprecationWarning" in result.stderr
-        assert "descontinuado" in result.stderr or "deprecated" in result.stderr.lower()
+        assert "AVISO" in result.stderr
+        assert "descontinuado" in result.stderr
 
 
 class TestConfigValidation:
