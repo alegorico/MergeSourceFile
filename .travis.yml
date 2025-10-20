@@ -1,0 +1,26 @@
+language: python
+
+# Python versions to test
+python:
+  - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
+
+# Install dependencies
+install:
+  - pip install --upgrade pip
+  - pip install -e ".[dev]"
+
+# Run tests
+script:
+  - pytest
+
+# Additional configuration
+cache:
+  pip: true
+
+# Notifications (optional, can be configured later)
+notifications:
+  email: false
