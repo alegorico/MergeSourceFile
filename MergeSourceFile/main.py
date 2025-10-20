@@ -22,7 +22,6 @@
 
 import re
 import argparse
-import warnings
 import sys
 from pathlib import Path
 from jinja2 import Environment, BaseLoader, StrictUndefined, TemplateSyntaxError, UndefinedError
@@ -569,23 +568,19 @@ def main():
                 cmd_line_params_used.append('--processing-order/-po')
             
             if cmd_line_params_used:
-                warnings.warn(
-                    f"ADVERTENCIA: Se especifico --config, los siguientes parametros de linea de comandos seran ignorados: {', '.join(cmd_line_params_used)}",
-                    UserWarning,
-                    stacklevel=2
-                )
+                print(f"⚠️  AVISO: Se especifico --config, los siguientes parametros de linea de comandos seran ignorados:", file=sys.stderr)
+                print(f"   {', '.join(cmd_line_params_used)}", file=sys.stderr)
+                print("", file=sys.stderr)  # Línea en blanco para separar
         else:
             # Validar que se especificaron input y output cuando no hay config
             if not args.input or not args.output:
                 parser.error("Los argumentos --input/-i y --output/-o son requeridos cuando no se usa --config/-c")
             
             # Mostrar advertencia de depreciacion para parametros de linea de comandos
-            warnings.warn(
-                "ADVERTENCIA: El uso de parametros de linea de comandos sera descontinuado en futuras versiones. "
-                "Se recomienda usar un archivo de configuracion TOML con --config/-c",
-                DeprecationWarning,
-                stacklevel=2
-            )
+            print("⚠️  AVISO: El uso de parametros de linea de comandos sera descontinuado en futuras versiones.", file=sys.stderr)
+            print("   Se recomienda usar un archivo de configuracion TOML con --config/-c", file=sys.stderr)
+            print("   Ejemplo: mergesourcefile --config config.toml", file=sys.stderr)
+            print("", file=sys.stderr)  # Línea en blanco para separar
             
             # Usar parametros de linea de comandos
             input_file = args.input
