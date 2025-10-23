@@ -8,7 +8,7 @@ from pathlib import Path
 
 def run_tests():
     """Ejecutar tests principales"""
-    project_root = Path(__file__).parent
+    project_root = Path(__file__).parent.parent  # Go up one level from scripts/
     python_exe = project_root / ".venv" / "Scripts" / "python.exe"
     
     print("🧪 Ejecutando tests de MergeSourceFile...")
