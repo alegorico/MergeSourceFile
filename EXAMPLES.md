@@ -1,20 +1,21 @@
 # MergeSourceFile - Practical Examples
 
-This document provides practical examples of using MergeSourceFile v1.4.0 with TOML configuration support, enhanced DEFINE support, and Jinja2 integration.
+This document provides practical examples of using MergeSourceFile v2.0.0 with the new plugin-based architecture, hierarchical configuration format, and flexible processing pipelines.
 
-## 🆕 Configuration-Only Workflow (v1.4.0)
+## 🆕 Configuration-Only Workflow (v2.0.0)
 
-MergeSourceFile v1.4.0 uses a **configuration-only interface**. All settings are specified in a `MKFSource.toml` file in your project directory.
+MergeSourceFile v2.0.0 uses a **configuration-only interface** with a new hierarchical format. All settings are specified in a `MKFSource.toml` file in your project directory.
 
 ### Example 1: Basic Configuration
 
 **MKFSource.toml**:
 ```toml
-[mergesourcefile]
+[project]
 input = "main.sql"
 output = "merged.sql"
-skip_var = false
-verbose = false
+
+[plugins.sqlplus]
+enabled = true
 ```
 
 **Command**:
@@ -28,13 +29,15 @@ That's it! The tool automatically reads from `MKFSource.toml`.
 
 **MKFSource.toml**:
 ```toml
-[mergesourcefile]
+[project]
 input = "template.sql"
 output = "generated.sql"
-jinja2 = true
-jinja2_vars = "production_vars.json"
-processing_order = "jinja2_first"
 verbose = true
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "production_vars.json"
 ```
 
 **production_vars.json**:
@@ -78,29 +81,28 @@ Create different TOML files for each environment and copy the appropriate one:
 
 **MKFSource.dev.toml**:
 ```toml
-[mergesourcefile]
+[project]
 input = "app.sql"
 output = "app_dev.sql"
-jinja2 = true
-jinja2_vars = "dev_vars.json"
 verbose = true
-```
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
 
-**MKFSource.prod.toml**:
-output = "app_dev.sql"
-jinja2 = true
-jinja2_vars = "dev_vars.json"
-verbose = true
+[plugins.jinja2]
+enabled = true
+variables_file = "dev_vars.json"
 ```
 
 **MKFSource.prod.toml**:
 ```toml
-[mergesourcefile]
+[project]
 input = "app.sql"
 output = "app_prod.sql"
-jinja2 = true
-jinja2_vars = "prod_vars.json"
 verbose = false
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "prod_vars.json"
 ```
 
 **Usage**:
@@ -120,14 +122,13 @@ When you only want to resolve file inclusions without processing DEFINE variable
 
 **MKFSource.toml**:
 ```toml
-[mergesourcefile]
-input = "includes_only.sql"
-```toml
-[mergesourcefile]
+[project]
 input = "includes.sql"
 output = "merged_includes.sql"
+
+[plugins.sqlplus]
+enabled = true
 skip_var = true
-verbose = false
 ```
 
 **Command**:
@@ -139,10 +140,13 @@ mergesourcefile
 
 **MKFSource.toml**:
 ```toml
-[mergesourcefile]
+[project]
 input = "debug.sql"
 output = "debug_output.sql"
 verbose = true
+
+[plugins.sqlplus]
+enabled = true
 skip_var = false
 ```
 
@@ -156,13 +160,61 @@ This will show detailed information about:
 - Which variables are being defined
 - Which variables are being replaced and where
 
-## New in v1.1.1: Enhanced DEFINE Syntax
+## Processing Pipeline Examples
 
-### 1. Improved DEFINE Statement Support
+### Example 6: Jinja2 First (Template-Driven Includes)
 
-**Fixed: Unquoted DEFINE values now work correctly**
+Use when Jinja2 templates determine which files to include:
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "config.json"
+```
+
+**main.sql**:
 ```sql
--- ✅ All of these now work correctly (fixed from v1.1.0)
+-- Jinja2 processes first, determines which file to include
+{% if environment == 'production' %}
+@production_config.sql
+{% else %}
+@development_config.sql
+{% endif %}
+```
+
+### Example 7: Variables First
+
+Use when SQL variables should affect Jinja2 templates:
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+
+[plugins.sqlplus]
+enabled = true
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+
+# execution_order moved to [project] section: execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]
+```
+
+## Enhanced DEFINE Syntax Support
+
+### Example 8: Improved DEFINE Statement Support
+
+**input.sql**:
+```sql
+-- ✅ All of these now work correctly
 DEFINE schema_name = PRODUCTION;
 DEFINE table_prefix = TBL;
 DEFINE version_num = 2;
@@ -188,12 +240,17 @@ CREATE TABLE &table_prefix._USERS_&version_num (
 );
 ```
 
-**Command (No special flags needed)**:
-```bash
-mergesourcefile -i enhanced_defines.sql -o output.sql
+**MKFSource.toml**:
+```toml
+[project]
+input = "input.sql"
+output = "output.sql"
+
+[plugins.sqlplus]
+enabled = true
 ```
 
-### 2. Enhanced Error Reporting with Verbose Mode
+### Example 9: Enhanced Error Reporting with Verbose Mode
 
 **Input with some invalid DEFINE statements**:
 ```sql
@@ -210,9 +267,15 @@ DEFINE another_bad =;
 SELECT '&good_var', '&quoted_var' FROM dual;
 ```
 
-**Command with verbose output**:
-```bash
-mergesourcefile -i mixed_defines.sql -o output.sql --verbose
+**MKFSource.toml**:
+```toml
+[project]
+input = "mixed_defines.sql"
+output = "output.sql"
+verbose = true
+
+[plugins.sqlplus]
+enabled = true
 ```
 
 **Expected verbose output**:
@@ -232,7 +295,7 @@ good_var	1
 quoted_var	1
 ```
 
-### 3. ⚠️ Common Pitfall: Spaces in Unquoted Values
+### Example 10: ⚠️ Common Pitfall: Spaces in Unquoted Values
 
 **DANGEROUS Example - This WILL FAIL**:
 ```sql
@@ -253,13 +316,16 @@ CREATE TABLESPACE &table_space;
 }
 ```
 
-**Command**:
-```bash
-mergesourcefile -i dangerous.sql -o output.sql --jinja2 --jinja2-vars '{
-  "schema_name": "MY PROD SCHEMA",
-  "table_space": "PROD DATA TS",
-  "max_connections": 200
-}'
+**MKFSource.toml**:
+```toml
+[project]
+input = "dangerous.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
 ```
 
 **Resulting output (BROKEN SQL*Plus syntax)**:
@@ -292,9 +358,9 @@ DEFINE max_conn = 200;                        -- ✅ Valid: number without quote
 CREATE TABLESPACE PROD DATA TS;               -- ✅ This works correctly!
 ```
 
-## Basic Examples
+## Jinja2 Integration Examples
 
-### 1. Simple Variable Substitution
+### Example 11: Simple Variable Substitution
 
 **⚠️ Important: Quoted vs Unquoted Jinja2 Variables in DEFINE**
 
@@ -323,7 +389,7 @@ DEFINE max_connections = '{{ max_connections }}'; -- Results in: DEFINE max_conn
 
 **🔥 Critical Rule: When in doubt, use quotes! They prevent SQL*Plus syntax errors.**
 
-**Input (`config.sql`)**:
+**config.sql**:
 ```sql
 -- Database configuration for {{ environment }}
 DEFINE schema_name = '{{ schema_name }}';      -- String value needs quotes
@@ -339,9 +405,9 @@ ALTER SYSTEM SET sessions = &max_connections;
 ALTER SYSTEM SET sql_trace_wait_time = &timeout_seconds;
 ```
 
-**Command**:
-```bash
-mergesourcefile -i config.sql -o output.sql --jinja2 --jinja2-vars '{
+**vars.json**:
+```json
+{
   "environment": "production",
   "schema_name": "PROD_SCHEMA",
   "table_space": "PROD_TS",
@@ -349,7 +415,19 @@ mergesourcefile -i config.sql -o output.sql --jinja2 --jinja2-vars '{
   "timeout": 60,
   "data_file_path": "/opt/oracle/data/prod.dbf",
   "initial_size": "1G"
-}'
+}
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "config.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
 ```
 
 **Expected output**:
@@ -368,9 +446,9 @@ ALTER SYSTEM SET sessions = 200;
 ALTER SYSTEM SET sql_trace_wait_time = 60;
 ```
 
-### 2. Conditional Logic
+### Example 12: Conditional Logic
 
-**Input (`deploy.sql`)**:
+**deploy.sql**:
 ```sql
 -- Deployment script for {{ environment }}
 {% if environment == 'production' %}
@@ -389,17 +467,29 @@ ALTER DATABASE ARCHIVELOG;
 {% endif %}
 ```
 
-**Command**:
-```bash
-mergesourcefile -i deploy.sql -o output.sql --jinja2 --jinja2-vars '{
+**environment.json**:
+```json
+{
   "environment": "production",
   "backup_enabled": true
-}'
+}
 ```
 
-### 3. Loops for Repetitive Structures
+**MKFSource.toml**:
+```toml
+[project]
+input = "deploy.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
 
-**Input (`create_tables.sql`)**:
+[plugins.jinja2]
+enabled = true
+variables_file = "environment.json"
+```
+
+### Example 13: Loops for Repetitive Structures
+
+**create_tables.sql**:
 ```sql
 -- Create multiple tables
 {% for table in tables %}
@@ -419,9 +509,9 @@ CREATE TABLE {{ table.name }}_audit AS SELECT * FROM {{ table.name }} WHERE 1=0;
 {% endfor %}
 ```
 
-**Command**:
-```bash
-mergesourcefile -i create_tables.sql -o output.sql --jinja2 --jinja2-vars '{
+**tables.json**:
+```json
+{
   "tables": [
     {
       "name": "users",
@@ -441,14 +531,26 @@ mergesourcefile -i create_tables.sql -o output.sql --jinja2 --jinja2-vars '{
       ]
     }
   ]
-}'
+}
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "create_tables.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "tables.json"
 ```
 
 ## Advanced Examples
 
-### 4. Dynamic File Inclusion
+### Example 14: Dynamic File Inclusion
 
-**Input (`main.sql`)**:
+**main.sql**:
 ```sql
 -- Main deployment script
 -- Generated on {{ now() | strftime('%Y-%m-%d %H:%M:%S') }}
@@ -473,17 +575,29 @@ mergesourcefile -i create_tables.sql -o output.sql --jinja2 --jinja2-vars '{
 @common/insert_reference_data.sql
 ```
 
-**Command (using jinja2_first order)**:
-```bash
-mergesourcefile -i main.sql -o output.sql --jinja2 --processing-order jinja2_first --jinja2-vars '{
+**environment.json**:
+```json
+{
   "environment": "production",
   "enabled_features": ["audit", "reporting", "notifications"]
-}'
+}
 ```
 
-### 5. SQL Injection Protection
+**MKFSource.toml (using jinja2_first order)**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
 
-**Input (`data_script.sql`)**:
+[plugins.jinja2]
+enabled = true
+variables_file = "environment.json"
+```
+
+### Example 15: SQL Injection Protection
+
+**data_script.sql**:
 ```sql
 -- Insert user data with proper escaping
 {% for user in users %}
@@ -503,25 +617,37 @@ SET last_login = SYSDATE,
 WHERE username = '{{ current_user | sql_escape }}';
 ```
 
-**Command**:
-```bash
-mergesourcefile -i data_script.sql -o output.sql --jinja2 --jinja2-vars '{
+**users.json**:
+```json
+{
   "users": [
     {
       "username": "john_doe",
       "email": "john@example.com",
-      "full_name": "John O'\''Brien",
-      "bio": "Software developer who loves '\''coding'\'' and databases"
+      "full_name": "John O'Brien",
+      "bio": "Software developer who loves 'coding' and databases"
     }
   ],
   "current_user": "admin",
-  "user_notes": "User said: '\''Everything looks good!'\''"
-}'
+  "user_notes": "User said: 'Everything looks good!'"
+}
 ```
 
-### 6. Date Formatting
+**MKFSource.toml**:
+```toml
+[project]
+input = "data_script.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
 
-**Input (`audit_script.sql`)**:
+[plugins.jinja2]
+enabled = true
+variables_file = "users.json"
+```
+
+### Example 16: Date Formatting
+
+**audit_script.sql**:
 ```sql
 -- Audit script generated on {{ now() | strftime('%A, %B %d, %Y at %I:%M %p') }}
 
@@ -538,16 +664,28 @@ SELECT * FROM main_table
 WHERE created_date < DATE '{{ cutoff_date | strftime('%Y-%m-%d') }}';
 ```
 
-**Command**:
-```bash
-mergesourcefile -i audit_script.sql -o output.sql --jinja2 --jinja2-vars '{
+**audit_config.json**:
+```json
+{
   "cutoff_date": "2024-01-01"
-}'
+}
 ```
 
-### 7. Complex Processing Order Example
+**MKFSource.toml**:
+```toml
+[project]
+input = "audit_script.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
 
-**Input (`complex.sql`)**:
+[plugins.jinja2]
+enabled = true
+variables_file = "audit_config.json"
+```
+
+### Example 17: Complex Processing Order
+
+**complex.sql**:
 ```sql
 -- Complex script demonstrating processing order
 
@@ -570,16 +708,50 @@ SELECT
 FROM &base_schema..users;
 ```
 
-**Command (different processing orders)**:
-```bash
-# Default order: Includes → Jinja2 → SQL
-mergesourcefile -i complex.sql -o output1.sql --jinja2 --jinja2-vars '{"environment": "prod", "report_title": "Production Report"}'
+**complex_vars.json**:
+```json
+{
+  "environment": "prod",
+  "report_title": "Production Report"
+}
+```
 
-# Jinja2 first: Jinja2 → Includes → SQL (enables dynamic includes)
-mergesourcefile -i complex.sql -o output2.sql --jinja2 --processing-order jinja2_first --jinja2-vars '{"environment": "prod", "report_title": "Production Report"}'
+**Different processing orders**:
 
-# Includes last: SQL → Jinja2 → Includes
-mergesourcefile -i complex.sql -o output3.sql --jinja2 --processing-order includes_last --jinja2-vars '{"environment": "prod", "report_title": "Production Report"}'
+**MKFSource_default.toml** (Default order: Includes → Jinja2 → SQL):
+```toml
+[project]
+input = "complex.sql"
+output = "output1.sql"
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "complex_vars.json"
+```
+
+**MKFSource_jinja2_first.toml** (Jinja2 first - enables dynamic includes):
+```toml
+[project]
+input = "complex.sql"
+output = "output2.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "complex_vars.json"
+```
+
+**MKFSource_includes_last.toml** (Includes last):
+```toml
+[project]
+input = "complex.sql"
+output = "output3.sql"
+execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "complex_vars.json"
 ```
 
 ## Best Practices
@@ -611,6 +783,92 @@ mergesourcefile -i complex.sql -o output3.sql --jinja2 --processing-order includ
    **💡 Golden Rule**: Use quotes unless you're 100% certain the variable contains only:
    - Pure numbers (100, 3.14, -50)
    - Simple identifiers without spaces (PROD, TEST, V2)
+
+2. **Use Verbose Mode for Debugging**:
+   ```toml
+   [project]
+   input = "script.sql"
+   output = "output.sql"
+   verbose = true  # Enable detailed logging
+   ```
+
+3. **Separate Concerns with Processing Order**:
+   - Use `["jinja2", "sqlplus_includes", "sqlplus_vars"]` when Jinja2 determines which files to include
+   - Use `["sqlplus_includes", "jinja2", "sqlplus_vars"]` (default) for most cases
+   - Use `["sqlplus_vars", "jinja2", "sqlplus_includes"]` when SQL variables affect Jinja2 templates
+
+4. **Always Use SQL Escape Filter for User Input**:
+   ```sql
+   INSERT INTO users (name, comment) 
+   VALUES ('{{ user.name | sql_escape }}', '{{ user.comment | sql_escape }}');
+   ```
+
+5. **Test Processing Orders**:
+   - Create different MKFSource configurations for testing
+   - Understand how plugin order affects the final output
+
+## Migration Examples
+
+### Migrating from CLI to Configuration File (v2.0.0)
+
+**Old approach (v1.x - NO LONGER WORKS)**:
+```bash
+mergesourcefile -i existing.sql -o output.sql
+```
+
+**New approach (v2.0.0)**:
+```toml
+# MKFSource.toml
+[project]
+input = "existing.sql"
+output = "output.sql"
+
+[plugins.sqlplus]
+enabled = true
+```
+
+Then run:
+```bash
+mergesourcefile
+```
+
+### Adding Jinja2 to Existing Project
+
+**Before (v1.x - NO LONGER WORKS)**:
+```bash
+mergesourcefile -i existing.sql -o output.sql --jinja2
+```
+
+**After (v2.0.0)**:
+```toml
+# MKFSource.toml
+[project]
+input = "enhanced.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+```
+
+## Summary
+
+MergeSourceFile v2.0.0 provides a powerful, flexible, plugin-based system for processing SQL*Plus scripts with template support. The new hierarchical configuration format makes it easy to:
+
+- Process SQL*Plus scripts with file inclusions
+- Apply Jinja2 templates with custom filters
+- Manage variables with DEFINE/UNDEFINE
+- Configure processing order for different workflows
+- Separate concerns between plugins
+- Version control your build configurations
+- Share configurations across teams
+
+For more information:
+- **Configuration Reference**: See `CONFIGURATION.md`
+- **Architecture Details**: See `ARCHITECTURE.md`
+- **Change Log**: See `CHANGELOG.md`
+- **Quick Start**: See `README.md`
 
 2. **Safe JSON Variable Design**:
    ```json

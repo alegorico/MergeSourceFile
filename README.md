@@ -14,28 +14,69 @@
 [![TOML Config](https://img.shields.io/badge/Config-TOML-blue.svg)](https://toml.io/)
 [![Jinja2](https://img.shields.io/badge/Templates-Jinja2-red.svg)](https://jinja.palletsprojects.com/)
 
-A Python tool to process SQL*Plus scripts with Jinja2 template support, resolving file inclusions and variable substitutions.
+A modular, plugin-based Python tool to process SQL*Plus scripts with Jinja2 template support, resolving file inclusions and variable substitutions.
 
 ## Description
 
-This is a Python project that includes a script capable of processing SQL*Plus scripts with Jinja2 template support. The program resolves file inclusions referenced through `@` and `@@`, performs variable substitutions defined with `DEFINE`, supports variable removal with `UNDEFINE`, allows variable redefinition throughout the script, and **now includes Jinja2 template processing** with custom filters and multiple processing strategies.
+MergeSourceFile is a powerful SQL script processor with a **plugin-based architecture** that provides flexible, configurable processing pipelines. The tool processes SQL*Plus scripts with support for file inclusions (`@`, `@@`), variable substitutions (`DEFINE`/`UNDEFINE`), and Jinja2 templating with custom filters and processing strategies.
 
 ## Features
 
-- **File Inclusion Resolution**: Processes `@` and `@@` directives to include external SQL files
-- **Variable Substitution**: Handles `DEFINE` and `UNDEFINE` commands for variable management
-- **Variable Redefinition**: Supports redefining variables throughout the script
-- **🆕 Jinja2 Template Processing**: Full Jinja2 template support with variables, conditionals, loops, and filters
-- **🆕 Custom Jinja2 Filters**: `sql_escape` for SQL injection protection and `strftime` for date formatting
-- **🆕 Multiple Processing Orders**: Choose between `default`, `jinja2_first`, or `includes_last` processing strategies
-- **🆕 Dynamic File Inclusion**: Use Jinja2 variables to determine which files to include
-- **Tree Display**: Shows the inclusion hierarchy in a tree structure
-- **Verbose Mode**: Detailed logging for debugging and understanding the processing flow
+- **🔌 Plugin Architecture**: Modular, extensible design with independent processing plugins
+- **📦 Processing Pipeline**: Configurable execution order for different processing strategies
+- **📁 File Inclusion Resolution**: Processes `@` and `@@` directives to include external SQL files
+- **🔧 Variable Substitution**: Handles `DEFINE` and `UNDEFINE` commands for variable management
+- **🔄 Variable Redefinition**: Supports redefining variables throughout the script
+- **� Jinja2 Template Processing**: Full Jinja2 template support with variables, conditionals, loops, and filters
+- **🛡️ Custom Jinja2 Filters**: `sql_escape` for SQL injection protection and `strftime` for date formatting
+- **⚙️ Flexible Processing Orders**: Customize plugin execution order for different workflows
+- **🌳 Tree Display**: Shows the inclusion hierarchy in a tree structure
+- **📊 Verbose Mode**: Detailed logging for debugging and understanding the processing flow
 
 ## Installation
 
 ```bash
 pip install MergeSourceFile
+```
+
+## What's New in v2.0.0
+
+- 🔌 **Plugin Architecture**: Complete rewrite with modular, extensible plugin system
+- 📦 **Processing Pipeline**: Configurable execution order with `ProcessorPipeline`
+- 🏗️ **Plugin Registry**: Central registry for plugin management and discovery
+- 🔧 **Plugin System**: Abstract base classes (`ProcessorPlugin`) for custom plugins
+- 📝 **New Configuration Format**: Hierarchical TOML with `[project]`, `[plugins.*]` sections
+- ❌ **Breaking Change**: Legacy `[mergesourcefile]` format no longer supported
+- ✅ **Enhanced Testing**: 69 comprehensive tests with 81% code coverage
+- 🎯 **Better Separation**: Clear separation between SQLPlus includes, variables, and Jinja2
+
+### Migration from v1.x to v2.0.0
+
+**Old Configuration Format (v1.x - NO LONGER SUPPORTED)**:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "output.sql"
+jinja2 = true
+processing_order = "default"
+```
+
+**New Configuration Format (v2.0.0 - REQUIRED)**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+verbose = false
+
+[plugins.sqlplus]
+enabled = true
+skip_var = false
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+
+# execution_order moved to [project] section: execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
 ```
 
 ## What's New in v1.4.0
@@ -45,13 +86,6 @@ pip install MergeSourceFile
 - 🎯 **Project-Based Workflow**: Each build configuration has its own dedicated configuration file
 - 🧹 **Simplified CLI**: No more complex command-line arguments - just run `mergesourcefile`
 - ✨ **Cleaner Architecture**: Streamlined codebase focused on configuration-driven processing
-
-## What's New in v1.3.0
-
-- 🚀 **Python 3.11+ Required**: Updated minimum Python version to 3.11+
-- 📦 **Native TOML Support**: Uses built-in `tomllib` module (no external dependencies)
-- 🔧 **Simplified Dependencies**: Removed `tomli` dependency
-- ⚡ **Better Performance**: Improved performance and maintainability with native TOML support
 
 ## What's New in v1.3.0
 
@@ -86,66 +120,81 @@ Configuration files provide several advantages:
 1. **Create a `MKFSource.toml` file** in your project directory:
 
 ```toml
-[mergesourcefile]
+[project]
 input = "main.sql"
 output = "merged.sql"
-skip_var = false
-verbose = false
-jinja2 = false
-processing_order = "default"
+
+[plugins.sqlplus]
+enabled = true
 ```
 
-2. **Run the tool** (it automatically reads from `MKFSource.toml`):
+2. **Run the tool** (it automatically reads from `MKFSource.toml` in the current directory):
 
 ```bash
 mergesourcefile
 ```
 
-That's it! No command-line arguments needed.
+That's it! No command-line arguments needed. The tool exclusively reads from `MKFSource.toml`.
 
 ### Configuration Options
 
 All options are specified in the `MKFSource.toml` file:
 
 ```toml
-[mergesourcefile]
+[project]
 # Required fields
 input = "input.sql"              # Input file to process
-output = "output.sql"            # Output file for results
+output = "output.sql"            # Output file for merged result
 
 # Optional fields (with default values)
-skip_var = false                 # Skip variable substitution
 verbose = false                  # Enable verbose mode
-jinja2 = false                   # Enable Jinja2 processing
-jinja2_vars = "vars.json"        # JSON file with Jinja2 variables
-processing_order = "default"     # Processing order: default, jinja2_first, includes_last
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]  # Plugin execution order
+
+[plugins.sqlplus]
+# SQL*Plus plugin configuration
+enabled = true                   # Enable SQL*Plus processing
+skip_var = false                 # Skip DEFINE/UNDEFINE variable substitution
+
+[plugins.jinja2]
+# Jinja2 template plugin configuration
+enabled = false                  # Enable Jinja2 template processing
+variables_file = "vars.json"     # JSON file with Jinja2 variables
 ```
 
 ### Example Configurations
 
 **Basic Processing** (`MKFSource.toml`):
 ```toml
-[mergesourcefile]
+[project]
 input = "main.sql"
 output = "merged.sql"
+
+[plugins.sqlplus]
+enabled = true
 ```
 
 **With Jinja2 Templates** (`MKFSource.toml`):
 ```toml
-[mergesourcefile]
+[project]
 input = "template.sql"
 output = "generated.sql"
-jinja2 = true
-jinja2_vars = "production_vars.json"
-processing_order = "jinja2_first"
+verbose = false
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "production_vars.json"
 ```
 
 **Verbose Mode for Debugging** (`MKFSource.toml`):
 ```toml
-[mergesourcefile]
+[project]
 input = "debug.sql"
 output = "debug_output.sql"
 verbose = true
+
+[plugins.sqlplus]
+enabled = true
 skip_var = false
 ```
 
@@ -176,78 +225,63 @@ mergesourcefile
 The tool will:
 1. Look for `MKFSource.toml` in the current directory
 2. Read the configuration
-3. Process your SQL files according to the settings
-4. Output the merged result
+3. Load and configure plugins based on settings
+4. Execute the processing pipeline in the specified order
+5. Output the merged result
 
 ### Workflow
 
 1. **Create your configuration**: Create a `MKFSource.toml` file in your project directory
-2. **Configure your build**: Set the input/output files and processing options
-3. **Run the tool**: Execute `mergesourcefile` (no arguments needed)
+2. **Configure your build**: Set the input/output files and plugin settings
+3. **Run the tool**: Execute `mergesourcefile` (no arguments needed, reads from `MKFSource.toml`)
 4. **Get your output**: Find the merged SQL in the output file specified in your configuration
+
+**Important**: The tool exclusively reads from `MKFSource.toml` in the current directory. There are no command-line parameters for specifying configuration files or overriding settings.
 
 ### Configuration File Format
 
-The `MKFSource.toml` file must contain a `[mergesourcefile]` section:
+The `MKFSource.toml` file uses a hierarchical structure with three main sections:
 
 ```toml
-[mergesourcefile]
-input = "main.sql"
-output = "merged.sql"
+[project]
+input = "main.sql"              # Required: Input SQL file
+output = "merged.sql"           # Required: Output file for merged result
+verbose = false                 # Optional: Enable detailed logging
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]  # Plugin execution order
 
-# Optional parameters
-skip_var = false        # Set to true to skip variable substitution
-verbose = false         # Set to true for detailed processing information
-jinja2 = false          # Set to true to enable Jinja2 template processing
-jinja2_vars = ""        # Path to JSON file with Jinja2 variables
-processing_order = "default"  # Options: default, jinja2_first, includes_last
+[plugins.sqlplus]
+enabled = true                   # Enable SQLPlus processing (includes + variables)
+skip_var = false                 # Skip variable substitution if true
+
+[plugins.jinja2]
+enabled = false                  # Enable Jinja2 template processing
+variables_file = "vars.json"     # JSON file with Jinja2 variables
 ```
 
-Example with Jinja2 support:
+### Plugin System
+
+MergeSourceFile v2.0.0 introduces a plugin-based architecture with three core plugins:
+
+1. **sqlplus_includes**: Processes `@` and `@@` file inclusion directives
+2. **jinja2**: Processes Jinja2 template variables and expressions
+3. **sqlplus_vars**: Processes `DEFINE` and `UNDEFINE` variable commands
+
+You can customize the execution order to match your workflow:
 
 ```toml
-[mergesourcefile]
-input = "template.sql"
-output = "output.sql"
-jinja2 = true
-jinja2_vars = "vars.json"
-processing_order = "jinja2_first"
-verbose = true
+# Default: Includes → Jinja2 → Variables
+execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
+
+# Jinja2 First: Templates → Includes → Variables  
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+# Variables First: Variables → Jinja2 → Includes
+execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]
 ```
 
-### Usage Examples
+See the [Configuration Guide](CONFIGURATION.md) for detailed information about all configuration options.
 
-1. **Basic usage** (with MKFSource.toml in current directory):
-   ```bash
-   mergesourcefile
-   ```
-
-2. **With verbose output** (set in MKFSource.toml):
-   ```toml
-   [mergesourcefile]
-   input = "main.sql"
-   output = "merged.sql"
-   verbose = true
-   ```
-
-3. **With Jinja2 templates**:
-   ```toml
-   [mergesourcefile]
-   input = "template.sql"
-   output = "merged.sql"
-   jinja2 = true
-   jinja2_vars = "vars.json"
-   ```
-
-6. **Legacy: Process with Jinja2 variables** (deprecated):
-   ```bash
-   mergesourcefile -i template.sql -o merged.sql --jinja2 --jinja2-vars vars.json
-   ```
-
-7. **Legacy: Process with Jinja2-first processing order** (deprecated):
-   ```bash
-   mergesourcefile -i template.sql -o merged.sql --jinja2 --processing-order jinja2_first
-   ```
+## Features Details
 
 ## How It Works
 
@@ -346,13 +380,25 @@ INSERT INTO &table_prefix._users (name, email)
 VALUES ('{{ sample_user | sql_escape }}', '{{ sample_email | sql_escape }}');
 ```
 
-### Command
-```bash
-mergesourcefile -i template.sql -o output.sql --jinja2 --processing-order jinja2_first --jinja2-vars '{
+### Configuration (`MKFSource.toml`)
+```toml
+[project]
+input = "template.sql"
+output = "output.sql"
+execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+```
+
+### Variables File (`vars.json`)
+```json
+{
   "environment": "production",
   "database_name": "MYAPP_DB",
   "table_prefix": "APP",
-  "sample_user": "John O'\''Brien",
+  "sample_user": "John O'Brien",
   "sample_email": "john@example.com",
   "additional_tables": [
     {
@@ -363,94 +409,83 @@ mergesourcefile -i template.sql -o output.sql --jinja2 --processing-order jinja2
       ]
     }
   ]
-}'
+}
 ```
 
-## Migration from v1.0.x
-
-If you're upgrading from a previous version, your existing scripts will continue to work without any changes. The new Jinja2 functionality is **completely optional** and requires explicit activation with the `--jinja2` flag.
-
-### Backward Compatibility
-- All existing command-line options work exactly as before
-- File inclusion (`@`, `@@`) behavior is unchanged
-- Variable substitution (`DEFINE`, `UNDEFINE`) works as expected
-- No breaking changes to existing functionality
-
-### Gradual Adoption
-You can gradually adopt Jinja2 features:
-1. Start with simple variable substitution: `{{ variable }}`
-2. Add conditional logic: `{% if condition %}`
-3. Use loops for repetitive structures: `{% for item in list %}`
-4. Apply custom filters: `{{ value | sql_escape }}`
-5. Experiment with processing orders for complex scenarios
-
-## Migration from v1.1.x to v1.2.0
-
-### Migrating to TOML Configuration
-
-The new TOML configuration file approach offers a cleaner, more maintainable way to manage your MergeSourceFile settings. While command-line parameters are still supported, they will be deprecated in future versions.
-
-#### Step 1: Create a TOML Configuration File
-
-Instead of:
-## Migration Guide from v1.3.0 to v1.4.0
-
-**BREAKING CHANGE**: v1.4.0 removes all command-line parameters. Follow these steps to migrate:
-
-### Step 1: Rename Your Configuration File
-
+### Run
 ```bash
-# Old way (v1.3.0)
-mergesourcefile --config myconfig.toml
-
-# New way (v1.4.0)
-mv myconfig.toml MKFSource.toml
 mergesourcefile
 ```
 
-### Step 2: Place Configuration in Project Directory
+## Migration Guide from v1.x to v2.0.0
 
-Ensure your `MKFSource.toml` is in the directory where you run `mergesourcefile`:
+**BREAKING CHANGE**: v2.0.0 introduces a new plugin-based architecture with a hierarchical configuration format. The old `[mergesourcefile]` format is no longer supported.
 
+### Step 1: Update Your Configuration File Name
+
+Rename your configuration file to `MKFSource.toml` and place it in the directory where you run `mergesourcefile`:
+
+```bash
+# If you have an old config file, rename it
+mv myconfig.toml MKFSource.toml
+```
+
+**Note**: Since v1.4.0, the tool no longer accepts command-line parameters like `--config`. It exclusively reads from `MKFSource.toml` in the current directory.
+
+### Step 2: Update Your Configuration Structure
+
+**Old Configuration (v1.x)**:
 ```toml
 [mergesourcefile]
 input = "main.sql"
 output = "output.sql"
-verbose = true
+jinja2 = true
+jinja2_vars = "vars.json"
 skip_var = false
+processing_order = "default"
 ```
 
-### Step 3: Update Build Scripts
+**New Configuration (v2.0.0)**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+verbose = false
 
-**Before (v1.3.0)**:
-```bash
-#!/bin/bash
-mergesourcefile --config config.prod.toml
+[plugins.sqlplus]
+enabled = true
+skip_var = false
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+
+# execution_order moved to [project] section: execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
 ```
 
-**After (v1.4.0)**:
+### Step 2: Update Processing Order Mapping
+
+| Old (v1.x) | New (v2.0.0) |
+|------------|------------|
+| `processing_order = "default"` | `execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]` |
+| `processing_order = "jinja2_first"` | `execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]` |
+| `processing_order = "includes_last"` | `execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]` |
+
+### Step 3: Test Your Configuration
+
 ```bash
-#!/bin/bash
-cp MKFSource.prod.toml MKFSource.toml
 mergesourcefile
 ```
 
-### Benefits of Configuration-Only Interface
-
-1. **Simplified CLI**: No complex command-line arguments
-2. **Project-Based**: Each build configuration has its own file
-3. **Version Control Friendly**: Configuration files commit alongside source code
-4. **Self-Documenting**: Configuration file serves as documentation
-5. **Maintainable**: Easier to manage complex configurations
-6. **Team-Friendly**: Share configurations across team members
+For detailed migration instructions, see [CONFIGURATION.md](CONFIGURATION.md) and [RELEASE_NOTES_v2.0.0.md](RELEASE_NOTES_v2.0.0.md).
 
 ## Best Practices
 
 ### When to Use Each Processing Order
 
-- **default**: Best for most use cases where Jinja2 templates don't need to generate file inclusion directives
-- **jinja2_first**: Use when Jinja2 templates need to conditionally determine which files to include
-- **includes_last**: Use when you need SQL variables to be processed before Jinja2 templates and file inclusions
+- **default**: `["sqlplus_includes", "jinja2", "sqlplus_vars"]` - Best for most use cases where Jinja2 templates don't need to generate file inclusion directives
+- **jinja2_first**: `["jinja2", "sqlplus_includes", "sqlplus_vars"]` - Use when Jinja2 templates need to conditionally determine which files to include
+- **includes_last**: `["sqlplus_vars", "jinja2", "sqlplus_includes"]` - Use when you need SQL variables to be processed before Jinja2 templates and file inclusions
 
 ### Security Considerations
 
@@ -465,7 +500,8 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
 
 ### Performance Tips
 
-- Use `skip_var = true` in your MKFSource.toml if you don't need SQL variable processing
+- Enable only the plugins you need in `[plugins]` section
+- Use `skip_var = true` in `[plugins.sqlplus]` if you don't need SQL variable processing
 - For large projects, consider splitting templates into smaller, focused files
 - Use Jinja2 comments `{# comment #}` instead of SQL comments for template-specific notes
 
@@ -474,9 +510,9 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
 ### Operating Systems
 - ✅ **Linux**: Full support with all features
 - ✅ **macOS**: Full support with all features  
-- ✅ **Windows**: Full support with enhanced compatibility (v1.1.1)
+- ✅ **Windows**: Full support with enhanced compatibility
   - Fixed Unicode encoding issues for CLI operations
-  - All 56 tests pass successfully on Windows systems
+  - All 69 tests pass successfully on Windows systems
   - Proper error codes and file path handling
 
 ### Python Versions
@@ -492,29 +528,20 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
 
 ### Common Issues
 
-1. **DEFINE syntax errors** (Fixed in v1.1.1):
-   - ✅ `DEFINE VAR = value` now works correctly (was broken in v1.1.0)
-   - ✅ Both quoted and unquoted DEFINE values supported
-   - Use verbose mode (`--verbose`) to see ignored invalid DEFINE statements
-
-2. **Jinja2 syntax errors**: Ensure proper template syntax with matching braces and tags
-3. **Variable not found**: Check that all variables are provided via `--jinja2-vars`
-4. **File inclusion issues**: Verify file paths and choose appropriate processing order
-5. **Encoding problems** (Fixed in v1.1.1): 
-   - ✅ Windows encoding issues resolved
-   - Ensure all files use consistent encoding (UTF-8 recommended)
-   - CLI now works properly on all Windows systems
-
-### Windows-Specific Issues (Resolved in v1.1.1)
-- ✅ **Unicode character display**: Fixed issues with special characters in CLI output
-- ✅ **File path resolution**: Enhanced path handling for nested file inclusions
-- ✅ **Exit codes**: CLI now returns proper error codes (1 for errors, 0 for success)
+1. **Configuration errors**: Ensure your `MKFSource.toml` follows the v2.0.0 format with `[project]` and `[plugins.*]` sections
+2. **DEFINE syntax errors**: Use verbose mode (`verbose = true` in config) to see ignored invalid DEFINE statements
+3. **Jinja2 syntax errors**: Ensure proper template syntax with matching braces and tags
+4. **Variable not found**: Check that all variables are provided via `variables_file` in `[plugins.jinja2]`
+5. **File inclusion issues**: Verify file paths and choose appropriate processing order
 
 ### Debug Mode
 
-Use `--verbose` flag to see detailed processing information:
-```bash
-mergesourcefile -i template.sql -o output.sql --jinja2 --verbose
+Enable verbose mode in your configuration to see detailed processing information:
+```toml
+[project]
+input = "template.sql"
+output = "output.sql"
+verbose = true
 ```
 
 ## License

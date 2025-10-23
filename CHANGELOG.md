@@ -5,6 +5,93 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-10-23
+
+### Added
+- **🔌 Plugin Architecture**
+  - Modular, extensible plugin system with abstract base class `ProcessorPlugin`
+  - Plugin registry (`PluginRegistry`) for centralized plugin management
+  - Processing pipeline (`ProcessorPipeline`) with configurable execution order
+  - Processing context (`ProcessingContext`) for state management across plugins
+  - Three core plugins: `SQLPlusIncludesPlugin`, `SQLPlusVarsPlugin`, `Jinja2Plugin`
+
+- **📝 New Configuration Format**
+  - Hierarchical TOML structure with `[project]`, `[plugins.*]` sections
+  - Individual plugin configuration sections (`[plugins.sqlplus]`, `[plugins.jinja2]`)
+  - Configurable plugin execution order in `[project].execution_order`
+  - Better separation of concerns and clarity
+
+- **✅ Enhanced Testing**
+  - Complete test suite refactoring: 69 comprehensive tests (was 73 with legacy code)
+  - 81% code coverage (exceeds 80% target)
+  - Plugin-oriented test structure:
+    - `test_config_loader.py` (11 tests) - Configuration loading and validation
+    - `test_plugin_system.py` (20 tests) - Plugin system architecture
+    - `test_sqlplus_plugin.py` (32 tests) - SQL*Plus plugins
+    - `test_jinja2.py` (2 tests) - Jinja2 plugin
+    - `test_integration.py` (6 tests) - End-to-end integration
+  - Eliminated 7 legacy test files for cleaner structure
+
+### Changed
+- **🏗️ Complete Architectural Rewrite**
+  - **BREAKING CHANGE**: Removed legacy `[mergesourcefile]` configuration format
+  - New plugin-based processing model replaces monolithic approach
+  - Separated SQLPlus functionality into two plugins (includes and variables)
+  - Better separation between file inclusion, templating, and variable processing
+
+- **Configuration Structure**
+  - `[project]` section: Project-level settings (input, output, verbose, execution_order)
+  - `[plugins.sqlplus]` section: SQL*Plus plugin settings (enabled, skip_var)
+  - `[plugins.jinja2]` section: Jinja2 plugin settings (enabled, variables_file)
+
+- **Processing Model**
+  - Pipeline-based execution with configurable plugin order
+  - Each plugin processes content independently
+  - State managed through `ProcessingContext`
+  - Plugins can be enabled/disabled individually
+
+### Removed
+- **BREAKING CHANGE**: Legacy `[mergesourcefile]` configuration format no longer supported
+- Legacy `processing_order` string values ('default', 'jinja2_first', 'includes_last')
+- Backward compatibility layer for v1.x configuration format
+- 7 legacy test files (consolidated into new plugin-oriented structure)
+
+### Migration Guide from v1.x
+
+**Old Configuration (v1.x - NO LONGER SUPPORTED)**:
+```toml
+[mergesourcefile]
+input = "main.sql"
+output = "output.sql"
+jinja2 = true
+jinja2_vars = "vars.json"
+skip_var = false
+processing_order = "default"
+```
+
+**New Configuration (v2.0.0 - REQUIRED)**:
+```toml
+[project]
+input = "main.sql"
+output = "output.sql"
+verbose = false
+
+[plugins.sqlplus]
+enabled = true
+skip_var = false
+
+[plugins.jinja2]
+enabled = true
+variables_file = "vars.json"
+
+# execution_order moved to [project] section: execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
+```
+
+**Processing Order Mapping**:
+- `"default"` → `["sqlplus_includes", "jinja2", "sqlplus_vars"]`
+- `"jinja2_first"` → `["jinja2", "sqlplus_includes", "sqlplus_vars"]`
+- `"includes_last"` → `["sqlplus_vars", "jinja2", "sqlplus_includes"]`
+
 ## [1.4.0] - 2025-10-23
 
 ### Changed

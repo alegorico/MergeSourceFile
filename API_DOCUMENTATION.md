@@ -4,48 +4,40 @@
 [![Python Support](https://img.shields.io/pypi/pyversions/MergeSourceFile.svg)](https://pypi.org/project/MergeSourceFile/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This document describes the internal API of MergeSourceFile v1.4.0 for developers who want to extend or integrate the functionality.
+This document describes the internal API of MergeSourceFile v2.0.0 for developers who want to extend or integrate the functionality.
 
-## What's New in v1.4.0
+## What's New in v2.0.0
 
-### Configuration-Only Interface
-- **BREAKING CHANGE**: Removed all command-line parameters
-- **Standard Configuration**: Tool now exclusively reads from `MKFSource.toml` in current directory
-- **Simplified CLI**: Just run `mergesourcefile` with no arguments
-- **Project-Based Workflow**: Each build configuration has its own dedicated TOML file
-- **Cleaner Architecture**: Streamlined codebase focused on configuration-driven processing
+### Plugin-Based Architecture
+- **Complete rewrite**: New modular, extensible plugin system
+- **Plugin Registry**: Central registry for plugin management (`PluginRegistry`)
+- **Processing Pipeline**: Configurable execution order (`ProcessorPipeline`)
+- **Processing Context**: State management across plugins (`ProcessingContext`)
+- **Core Plugins**: `SQLPlusIncludesPlugin`, `SQLPlusVarsPlugin`, `Jinja2Plugin`
 
-## What's New in v1.3.0
+### New Configuration Format
+- **Hierarchical TOML**: `[project]`, `[plugins.*]` sections
+- **Individual Plugin Config**: Separate configuration for each plugin
+- **Configurable Pipeline**: Custom plugin execution order
+- **BREAKING CHANGE**: Legacy `[mergesourcefile]` format no longer supported
 
-### Python 3.11+ Required
-- **Native TOML support**: Uses built-in `tomllib` module (no `tomli` dependency)
-- **Simplified codebase**: Removed Python version compatibility code
-- **Better performance**: Native TOML parsing is faster and more reliable
+### Enhanced Testing
+- **69 comprehensive tests** with 81% code coverage
+- **Plugin-oriented structure**: Tests organized by module
+- **Better separation**: Clear testing of each plugin independently
 
-## What's New in v1.1.1
+## Core Modules and Classes
 
-### Enhanced DEFINE Processing
-- **Improved regex pattern**: Now supports decimal values, hyphens, and complex alphanumeric values
-- **Better error handling**: Invalid DEFINE statements are ignored with verbose reporting
-- **Enhanced compatibility**: Fixed critical bug with unquoted DEFINE values
+### Configuration Module: `config_loader.py`
 
-### Platform Compatibility Improvements
-- **Windows support**: Fixed Unicode encoding issues for full Windows compatibility
-- **Error handling**: Enhanced CLI error codes and file path resolution
-- **Robust testing**: All 56 tests now pass on all platforms
-
-## Core Classes and Functions
-
-### Configuration Functions
-
-#### `load_config_from_toml(config_file='MKFSource.toml')`
-Loads configuration from a TOML file.
+#### `ConfigLoader.load(config_file='MKFSource.toml')`
+Loads and validates configuration from a TOML file.
 
 **Parameters:**
 - `config_file` (str, optional): Path to the TOML configuration file. Defaults to `'MKFSource.toml'` in the current directory.
 
 **Returns:**
-- `dict`: Configuration dictionary with all settings
+- `dict`: Normalized configuration dictionary with all settings
 
 **Raises:**
 - `FileNotFoundError`: When the configuration file doesn't exist (with detailed error message and example)
@@ -54,50 +46,150 @@ Loads configuration from a TOML file.
 
 **Example:**
 ```python
-from MergeSourceFile.main import load_config_from_toml
+from MergeSourceFile.config_loader import ConfigLoader
 
 # Load from default MKFSource.toml in current directory
-config = load_config_from_toml()
-print(config['input'])   # Access configuration values
-print(config['output'])
+config = ConfigLoader.load()
+print(config['project']['input'])   # Access configuration values
+print(config['project']['output'])
+print(config['plugins']['sqlplus']['enabled'])
 
 # Or specify a custom path
-config = load_config_from_toml("custom_config.toml")
+config = ConfigLoader.load("custom_config.toml")
 ```
 
-**TOML File Structure:**
+**TOML File Structure (v2.0.0):**
 ```toml
-[mergesourcefile]
+[project]
 # Required fields
 input = "input.sql"
 output = "output.sql"
 
 # Optional fields (defaults shown)
-skip_var = false
 verbose = false
-jinja2 = false
-jinja2_vars = "vars.json"
-processing_order = "default"
+
+[plugins.sqlplus]
+enabled = true
+skip_var = false
+
+[plugins.jinja2]
+enabled = false
+variables_file = "vars.json"
+
+# execution_order moved to [project] section: execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
 ```
 
-### Main Processing Functions
+### Plugin System: `plugin_system.py`
 
-#### `process_file_with_jinja2_replacements(content, args, input_path, processed_files)`
-Main processing function that handles the complete workflow.
+#### `ProcessingContext`
+Data container for processing state across plugins.
 
-**Parameters:**
-- `content` (str): File content to process
-- `args` (Namespace): Parsed command-line arguments
-- `input_path` (str): Path to input file
-- `processed_files` (set): Set of already processed files (prevents circular includes)
+**Attributes:**
+- `input_file` (str): Input file being processed
+- `content` (str): Current content being processed
+- `base_path` (Path): Base path for resolving relative paths
+- `processed_files` (set): Set of processed files (prevents circular includes)
+- `variables` (dict): Variables available for substitution
+- `verbose` (bool): Enable verbose logging
 
-**Returns:** 
-- `str`: Processed content
+#### `ProcessorPlugin` (Abstract Base Class)
+Base class for all processing plugins.
 
-**Processing Order:**
-Delegates to specific processing order functions based on `args.processing_order`.
+**Abstract Methods:**
+- `name` (property): Returns the plugin name
+- `process(context: ProcessingContext)`: Processes content and returns updated context
 
-#### Processing Order Functions
+**Example:**
+```python
+from MergeSourceFile.plugin_system import ProcessorPlugin, ProcessingContext
+
+class MyCustomPlugin(ProcessorPlugin):
+    @property
+    def name(self) -> str:
+        return "my_custom_plugin"
+    
+    def process(self, context: ProcessingContext) -> ProcessingContext:
+        # Process context.content
+        context.content = context.content.upper()
+        return context
+```
+
+#### `PluginRegistry`
+Central registry for plugin management.
+
+**Methods:**
+- `register(plugin: ProcessorPlugin)`: Register a plugin
+- `get_plugin(name: str)`: Get a plugin by name
+- `list_plugins()`: List all registered plugin names
+
+#### `ProcessorPipeline`
+Executes plugins in a specified order.
+
+**Methods:**
+- `__init__(registry: PluginRegistry, execution_order: list)`: Create pipeline
+- `execute(context: ProcessingContext)`: Execute all plugins in order
+
+**Example:**
+```python
+from MergeSourceFile.plugin_system import PluginRegistry, ProcessorPipeline, ProcessingContext
+from MergeSourceFile.plugins import get_available_plugins
+
+# Get available plugins
+available_plugins = get_available_plugins()
+
+# Setup registry
+registry = PluginRegistry()
+registry.register(available_plugins['sqlplus_includes']({}))
+registry.register(available_plugins['jinja2']({}))
+
+# Create pipeline
+pipeline = ProcessorPipeline(registry, ["sqlplus_includes", "jinja2"])
+
+# Execute
+context = ProcessingContext()
+context.input_file = "main.sql"
+context.content = "SELECT * FROM dual;"
+result = pipeline.execute(context)
+print(result.content)
+```
+
+### Plugin Discovery: `plugins/__init__.py`
+
+#### `get_available_plugins()`
+Returns a dictionary of all available plugin classes.
+
+**Returns:**
+- `dict[str, Type[ProcessorPlugin]]`: Mapping of plugin names to plugin classes
+
+**Available Plugins:**
+- `'sqlplus_includes'`: `SQLPlusIncludesPlugin` - Processes `@` and `@@` file inclusions
+- `'sqlplus_vars'`: `SQLPlusVarsPlugin` - Processes `DEFINE` and `UNDEFINE` commands
+- `'jinja2'`: `Jinja2Plugin` - Processes Jinja2 template expressions
+
+**Example:**
+```python
+from MergeSourceFile.plugins import get_available_plugins
+
+# List all available plugins
+plugins = get_available_plugins()
+for name, plugin_class in plugins.items():
+    print(f"{name}: {plugin_class.__name__}")
+
+# Output:
+# sqlplus_includes: SQLPlusIncludesPlugin
+# sqlplus_vars: SQLPlusVarsPlugin
+# jinja2: Jinja2Plugin
+
+# Instantiate a specific plugin
+jinja2_config = {'variables_file': 'vars.json'}
+jinja2_plugin = plugins['jinja2'](jinja2_config)
+```
+
+**Note:** This is the **recommended way** to access plugins programmatically. Avoid importing plugin classes directly from `MergeSourceFile.plugins.sqlplus_plugin` or similar paths to maintain loose coupling.
+
+##### Legacy Processing Orders (Deprecated)
+
+The following functions are kept for backward compatibility but are **deprecated** in v2.0.0:
 
 ##### `_process_default_order(content, args, input_path, processed_files)`
 **Order:** File Inclusions → Jinja2 Templates → SQL Variables
@@ -113,6 +205,8 @@ Enables dynamic file inclusion based on Jinja2 variables.
 **Order:** SQL Variables → Jinja2 Templates → File Inclusions
 
 Useful when SQL variables need to be available in Jinja2 templates.
+
+**Migration Note:** Use the new `ProcessorPipeline` with custom `execution_order` instead.
 
 ### Jinja2 Processing
 
