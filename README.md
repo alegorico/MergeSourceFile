@@ -499,8 +499,8 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
   - Proper error codes and file path handling
 
 ### Python Versions
-- Python 3.8+
-- Tested with Python 3.9, 3.10, 3.11, 3.12, 3.14
+- Python 3.11+ (Required for native TOML support)
+- Tested with Python 3.11, 3.12, 3.13, 3.14
 
 ### Character Encoding
 - Primary support: UTF-8 (recommended)

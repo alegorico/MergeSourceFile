@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-10-23
+
+### Changed
+- **🚀 Python 3.11+ Required**
+  - Updated minimum Python version from 3.8+ to 3.11+
+  - Leverages native `tomllib` module for TOML support (no external dependencies)
+  - Simplified codebase by removing conditional tomli/tomllib imports
+  - Better performance and maintainability with native TOML support
+
+- **Dependency Simplification**
+  - Removed `tomli` dependency (no longer needed with Python 3.11+)
+  - Cleaner dependency management with only `jinja2>=3.0.0` required
+  - Reduced package size and installation complexity
+
+- **Code Modernization**
+  - Removed Python version compatibility code for TOML handling
+  - Cleaner error handling without tomllib availability checks
+  - Improved code readability and maintainability
+
+### Removed
+- Support for Python 3.8, 3.9, and 3.10
+- `tomli` dependency and related compatibility code
+
 ## [1.2.0] - 2025-10-20
 
 ### Added
@@ -14,10 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports all application options: input, output, skip_var, verbose, jinja2, jinja2_vars, processing_order
   - Automatic validation of required parameters (input/output)
   - Warning system when both TOML config and command-line parameters are provided
-  - Compatible with Python 3.11+ (built-in tomllib) and Python 3.8-3.10 (via tomli dependency)
+  - Compatible with Python 3.8-3.12 (via tomli dependency for <3.11, built-in tomllib for 3.11+)
 
 - **Continuous Integration with CircleCI**
-  - Complete CircleCI configuration for automated testing across Python 3.8-3.12
+  - Complete CircleCI configuration for automated testing across Python 3.8-3.12 (discontinued in v1.3.0+)
   - Multi-version Python testing with coverage reporting
   - Automated codecov integration for coverage tracking
   - Matrix testing ensures compatibility across all supported Python versions

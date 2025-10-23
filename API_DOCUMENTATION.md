@@ -38,7 +38,7 @@ Loads configuration from a TOML file.
 **Raises:**
 - `FileNotFoundError`: When the configuration file doesn't exist
 - `ValueError`: When the TOML file is invalid or missing required sections
-- `ImportError`: When tomllib/tomli is not available (Python < 3.11)
+- `tomllib.TOMLDecodeError`: When the TOML file has invalid syntax
 
 **Example:**
 ```python

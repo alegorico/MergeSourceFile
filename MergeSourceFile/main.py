@@ -26,15 +26,7 @@ import sys
 from pathlib import Path
 from jinja2 import Environment, BaseLoader, StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.exceptions import TemplateError
-
-# Import tomllib for Python 3.11+, fallback to tomli for older versions
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        tomllib = None
+import tomllib
 
 # Sobrescribir la clase ArgumentParser para modificar los mensajes predeterminados
 class CustomArgumentParser(argparse.ArgumentParser):
@@ -463,12 +455,6 @@ def load_config_from_toml(config_file):
         FileNotFoundError: Si el archivo no existe
         ValueError: Si el archivo TOML es inválido
     """
-    if tomllib is None:
-        raise ImportError(
-            "El soporte para archivos TOML requiere Python 3.11+ o la instalación de 'tomli'. "
-            "Instale con: pip install tomli"
-        )
-    
     config_path = Path(config_file)
     if not config_path.exists():
         raise FileNotFoundError(f"Archivo de configuración no encontrado: {config_file}")
