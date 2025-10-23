@@ -1,6 +1,17 @@
 # MergeSourceFile API Documentation
 
-This document describes the internal API of MergeSourceFile v1.2.0 for developers who want to extend or integrate the functionality.
+[![PyPI version](https://badge.fury.io/py/MergeSourceFile.svg)](https://badge.fury.io/py/MergeSourceFile)
+[![Python Support](https://img.shields.io/pypi/pyversions/MergeSourceFile.svg)](https://pypi.org/project/MergeSourceFile/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+This document describes the internal API of MergeSourceFile v1.3.0 for developers who want to extend or integrate the functionality.
+
+## What's New in v1.3.0
+
+### Python 3.11+ Required
+- **Native TOML support**: Uses built-in `tomllib` module (no `tomli` dependency)
+- **Simplified codebase**: Removed Python version compatibility code
+- **Better performance**: Native TOML parsing is faster and more reliable
 
 ## What's New in v1.2.0
 
