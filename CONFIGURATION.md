@@ -1,31 +1,50 @@
 # MergeSourceFile Configuration Guide
 
-## TOML Configuration File Reference
+## Configuration File Reference (v1.4.0)
 
-MergeSourceFile supports configuration via TOML files using the `--config/-c` parameter. This approach simplifies complex workflows and provides better configuration management than command-line arguments.
+MergeSourceFile v1.4.0 operates exclusively through configuration files. The tool reads from a file named `MKFSource.toml` located in the current directory.
 
 ## Quick Start
 
-1. Create your configuration file based on the examples in this guide:
+1. Create `MKFSource.toml` in your project directory:
    ```bash
    # Create a new configuration file
-   touch config.toml
+   touch MKFSource.toml
    ```
 
 2. Edit the configuration file according to your needs
 
-3. Run with configuration:
+3. Run the tool (no arguments needed):
    ```bash
-   mergesourcefile --config config.toml
+   mergesourcefile
    ```
+
+## What Changed in v1.4.0
+
+**BREAKING CHANGES**:
+- ❌ **Removed all command-line parameters** (`--config`, `--input`, `--output`, etc.)
+- ✅ **Standard configuration file**: Must be named `MKFSource.toml`
+- ✅ **Located in current directory**: The tool looks for `MKFSource.toml` in `pwd`
+- ✅ **Simplified CLI**: Just run `mergesourcefile` with no arguments
+
+**Migration from v1.3.0**:
+```bash
+# Old way (v1.3.0)
+mergesourcefile --config myconfig.toml
+
+# New way (v1.4.0)
+# Rename your config file to MKFSource.toml
+mv myconfig.toml MKFSource.toml
+mergesourcefile
+```
 
 ## Configuration File Structure
 
 ### Complete Example
 
 ```toml
-# Example configuration file for MergeSourceFile
-# Create your config.toml file and adjust values according to your needs
+# MKFSource.toml - Configuration for MergeSourceFile v1.4.0
+# This file must be located in the current directory
 
 [mergesourcefile]
 # Input and output files (REQUIRED)
@@ -41,7 +60,7 @@ jinja2 = true                       # true to enable Jinja2 processing
 jinja2_vars = "variables.json"      # JSON file with variables for Jinja2
 
 # Processing order
-processing_order = "jinja2_first"   # Options: "default", "jinja2_first", "sqlplus_first"
+processing_order = "jinja2_first"   # Options: "default", "jinja2_first", "includes_last"
 ```
 
 ## Configuration Parameters
@@ -67,7 +86,7 @@ processing_order = "jinja2_first"   # Options: "default", "jinja2_first", "sqlpl
 
 - **`"default"`**: File inclusions → Jinja2 → SQL variables
 - **`"jinja2_first"`**: Jinja2 → File inclusions → SQL variables  
-- **`"sqlplus_first"`**: SQL variables → Jinja2 → File inclusions
+- **`"includes_last"`**: Jinja2 → SQL variables → File inclusions
 
 ## Usage Examples
 
@@ -97,57 +116,68 @@ skip_var = true
 processing_order = "jinja2_first"
 ```
 
-## Command Line Usage
+## Running MergeSourceFile
 
 ```bash
-# Use configuration file
-mergesourcefile --config config.toml
+# Simply run in the directory containing MKFSource.toml
+mergesourcefile
 
-# Configuration overrides all command-line parameters
-mergesourcefile --config config.toml --verbose  # --verbose is ignored
+# The tool will:
+# 1. Look for MKFSource.toml in current directory
+# 2. Read the configuration
+# 3. Process your SQL files
+# 4. Output the merged result
 ```
 
-## Migration from Command Line
+## Multiple Configurations for Different Environments
 
-### Before (Command Line)
-```bash
-mergesourcefile \
-  --input main.sql \
-  --output merged.sql \
-  --jinja2 \
-  --jinja2-vars variables.json \
-  --verbose \
-  --processing-order jinja2_first
-```
-
-### After (TOML Configuration)
-```toml
-[mergesourcefile]
-input = "main.sql"
-output = "merged.sql"
-jinja2 = true
-jinja2_vars = "variables.json"
-verbose = true
-processing_order = "jinja2_first"
-```
+Maintain separate configuration files and copy the appropriate one:
 
 ```bash
-mergesourcefile --config config.toml
+# Development build
+cp MKFSource.dev.toml MKFSource.toml
+mergesourcefile
+
+# Production build  
+cp MKFSource.prod.toml MKFSource.toml
+mergesourcefile
+
+# Or use a script to automate
+./build.sh dev    # Copies MKFSource.dev.toml and runs mergesourcefile
+./build.sh prod   # Copies MKFSource.prod.toml and runs mergesourcefile
 ```
 
 ## Best Practices
 
-1. **Version Control**: Include your `.toml` configuration files in version control
-2. **Environment-Specific**: Create different config files for different environments (`config.dev.toml`, `config.prod.toml`)
+1. **Version Control**: Include your `MKFSource.toml` file in version control
+2. **Environment-Specific**: Create separate config files for different environments (`MKFSource.dev.toml`, `MKFSource.prod.toml`)
 3. **Documentation**: Add comments in your configuration files to explain complex setups
-4. **Validation**: Test your configuration with `--verbose` enabled to verify processing order
+4. **Validation**: Test your configuration with `verbose = true` to verify processing order
+5. **Project-Based**: Keep one `MKFSource.toml` per build configuration/project
 
 ## Troubleshooting
 
+### Missing Configuration File
+```
+ERROR: No se encontró el archivo de configuración
+======================================================================
+Archivo buscado: MKFSource.toml
+Directorio actual: /path/to/current/directory
+
+Para usar MergeSourceFile, necesitas crear un archivo 'MKFSource.toml'
+en el directorio desde donde ejecutas el comando.
+```
+**Solution**: Create a `MKFSource.toml` file in your current directory.
+
 ### Missing Required Parameters
 ```
-ValueError: El archivo de configuracion debe especificar 'input'
+ERROR: Parámetros requeridos faltantes
+======================================================================
+Faltan los siguientes parámetros requeridos en 'MKFSource.toml':
+  - input
+  - output
 ```
+**Solution**: Add the required `input` and `output` fields to your `MKFSource.toml` file.
 **Solution**: Ensure both `input` and `output` parameters are specified in your TOML file.
 
 ### Invalid TOML Syntax

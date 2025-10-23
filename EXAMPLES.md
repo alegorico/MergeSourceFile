@@ -1,12 +1,14 @@
 # MergeSourceFile - Practical Examples
 
-This document provides practical examples of using MergeSourceFile v1.2.0 with TOML configuration support, enhanced DEFINE support, and Jinja2 integration.
+This document provides practical examples of using MergeSourceFile v1.4.0 with TOML configuration support, enhanced DEFINE support, and Jinja2 integration.
 
-## 🆕 TOML Configuration Examples (Recommended)
+## 🆕 Configuration-Only Workflow (v1.4.0)
 
-### Example 1: Basic TOML Configuration
+MergeSourceFile v1.4.0 uses a **configuration-only interface**. All settings are specified in a `MKFSource.toml` file in your project directory.
 
-**config.toml**:
+### Example 1: Basic Configuration
+
+**MKFSource.toml**:
 ```toml
 [mergesourcefile]
 input = "main.sql"
@@ -17,14 +19,14 @@ verbose = false
 
 **Command**:
 ```bash
-mergesourcefile --config config.toml
+mergesourcefile
 ```
 
-This is the **recommended way** to use MergeSourceFile. Command-line parameters are deprecated and will be removed in future versions.
+That's it! The tool automatically reads from `MKFSource.toml`.
 
-### Example 2: TOML Configuration with Jinja2
+### Example 2: Configuration with Jinja2
 
-**config.toml**:
+**MKFSource.toml**:
 ```toml
 [mergesourcefile]
 input = "template.sql"
@@ -67,14 +69,14 @@ CREATE TABLE &prefix._USERS (
 
 **Command**:
 ```bash
-mergesourcefile --config config.toml
+mergesourcefile
 ```
 
 ### Example 3: Multiple Environment Configurations
 
-Create different TOML files for each environment:
+Create different TOML files for each environment and copy the appropriate one:
 
-**config.dev.toml**:
+**MKFSource.dev.toml**:
 ```toml
 [mergesourcefile]
 input = "app.sql"
@@ -84,7 +86,14 @@ jinja2_vars = "dev_vars.json"
 verbose = true
 ```
 
-**config.prod.toml**:
+**MKFSource.prod.toml**:
+output = "app_dev.sql"
+jinja2 = true
+jinja2_vars = "dev_vars.json"
+verbose = true
+```
+
+**MKFSource.prod.toml**:
 ```toml
 [mergesourcefile]
 input = "app.sql"
@@ -94,23 +103,28 @@ jinja2_vars = "prod_vars.json"
 verbose = false
 ```
 
-**Commands**:
+**Usage**:
 ```bash
 # For development
-mergesourcefile --config config.dev.toml
+cp MKFSource.dev.toml MKFSource.toml
+mergesourcefile
 
 # For production
-mergesourcefile --config config.prod.toml
+cp MKFSource.prod.toml MKFSource.toml
+mergesourcefile
 ```
 
 ### Example 4: Skip Variable Processing
 
 When you only want to resolve file inclusions without processing DEFINE variables:
 
-**config.toml**:
+**MKFSource.toml**:
 ```toml
 [mergesourcefile]
 input = "includes_only.sql"
+```toml
+[mergesourcefile]
+input = "includes.sql"
 output = "merged_includes.sql"
 skip_var = true
 verbose = false
@@ -118,12 +132,12 @@ verbose = false
 
 **Command**:
 ```bash
-mergesourcefile --config config.toml
+mergesourcefile
 ```
 
 ### Example 5: Debugging with Verbose Mode
 
-**config.toml**:
+**MKFSource.toml**:
 ```toml
 [mergesourcefile]
 input = "debug.sql"
@@ -134,7 +148,7 @@ skip_var = false
 
 **Command**:
 ```bash
-mergesourcefile --config config.toml
+mergesourcefile
 ```
 
 This will show detailed information about:

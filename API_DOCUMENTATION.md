@@ -4,7 +4,16 @@
 [![Python Support](https://img.shields.io/pypi/pyversions/MergeSourceFile.svg)](https://pypi.org/project/MergeSourceFile/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This document describes the internal API of MergeSourceFile v1.3.0 for developers who want to extend or integrate the functionality.
+This document describes the internal API of MergeSourceFile v1.4.0 for developers who want to extend or integrate the functionality.
+
+## What's New in v1.4.0
+
+### Configuration-Only Interface
+- **BREAKING CHANGE**: Removed all command-line parameters
+- **Standard Configuration**: Tool now exclusively reads from `MKFSource.toml` in current directory
+- **Simplified CLI**: Just run `mergesourcefile` with no arguments
+- **Project-Based Workflow**: Each build configuration has its own dedicated TOML file
+- **Cleaner Architecture**: Streamlined codebase focused on configuration-driven processing
 
 ## What's New in v1.3.0
 
@@ -12,14 +21,6 @@ This document describes the internal API of MergeSourceFile v1.3.0 for developer
 - **Native TOML support**: Uses built-in `tomllib` module (no `tomli` dependency)
 - **Simplified codebase**: Removed Python version compatibility code
 - **Better performance**: Native TOML parsing is faster and more reliable
-
-## What's New in v1.2.0
-
-### TOML Configuration Support
-- **New `--config/-c` parameter**: Load all settings from a TOML configuration file
-- **Deprecation warnings**: Command-line parameters will show deprecation warnings
-- **Mutual exclusivity**: Config file and command-line parameters are properly handled
-- **Enhanced testing**: 12 new tests for TOML configuration functionality
 
 ## What's New in v1.1.1
 
@@ -37,34 +38,41 @@ This document describes the internal API of MergeSourceFile v1.3.0 for developer
 
 ### Configuration Functions
 
-#### `load_config_from_toml(config_file)`
+#### `load_config_from_toml(config_file='MKFSource.toml')`
 Loads configuration from a TOML file.
 
 **Parameters:**
-- `config_file` (str): Path to the TOML configuration file
+- `config_file` (str, optional): Path to the TOML configuration file. Defaults to `'MKFSource.toml'` in the current directory.
 
 **Returns:**
 - `dict`: Configuration dictionary with all settings
 
 **Raises:**
-- `FileNotFoundError`: When the configuration file doesn't exist
-- `ValueError`: When the TOML file is invalid or missing required sections
-- `tomllib.TOMLDecodeError`: When the TOML file has invalid syntax
+- `FileNotFoundError`: When the configuration file doesn't exist (with detailed error message and example)
+- `ValueError`: When the TOML file is invalid or missing required sections (with formatted error messages)
+- `tomllib.TOMLDecodeError`: When the TOML file has invalid syntax (wrapped in ValueError with helpful tips)
 
 **Example:**
 ```python
 from MergeSourceFile.main import load_config_from_toml
 
-config = load_config_from_toml("config.toml")
+# Load from default MKFSource.toml in current directory
+config = load_config_from_toml()
 print(config['input'])   # Access configuration values
 print(config['output'])
+
+# Or specify a custom path
+config = load_config_from_toml("custom_config.toml")
 ```
 
 **TOML File Structure:**
 ```toml
 [mergesourcefile]
+# Required fields
 input = "input.sql"
 output = "output.sql"
+
+# Optional fields (defaults shown)
 skip_var = false
 verbose = false
 jinja2 = false

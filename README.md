@@ -53,16 +53,12 @@ pip install MergeSourceFile
 - 🔧 **Simplified Dependencies**: Removed `tomli` dependency
 - ⚡ **Better Performance**: Improved performance and maintainability with native TOML support
 
-## What's New in v1.2.0
+## What's New in v1.3.0
 
-- ✨ **TOML Configuration Support**: New `--config` / `-c` parameter to read settings from a TOML file
-- 🔧 **Configuration File**: Centralized configuration in `config.toml` instead of command-line parameters
-- ⚠️ **Deprecation Warning**: Traditional command-line parameters now show a deprecation warning
-- 🔒 **Mutual Exclusivity**: Config file and command-line parameters cannot be used together
-- 📋 **Backward Compatibility**: All existing command-line parameters continue to work
-- 🧪 **Comprehensive Testing**: 11 new tests added (67 total tests passing)
-
-## What's New in v1.1.1
+- 🚀 **Python 3.11+ Required**: Updated minimum Python version to 3.11+
+- � **Native TOML Support**: Uses built-in `tomllib` module (no external dependencies)
+- 🔧 **Simplified Dependencies**: Removed `tomli` dependency
+- ⚡ **Better Performance**: Improved performance and maintainability with native TOML support
 
 - 🐛 **DEFINE Bug Fixes**: Critical fix for DEFINE statements without quotes (e.g., `DEFINE VAR = value`)
 - 🔧 **Enhanced DEFINE Support**: Improved regex to handle decimal values, hyphens, and complex alphanumeric values
@@ -194,8 +190,6 @@ The tool will:
 
 The `MKFSource.toml` file must contain a `[mergesourcefile]` section:
 
-Create a `config.toml` file in your project directory:
-
 ```toml
 [mergesourcefile]
 input = "main.sql"
@@ -221,31 +215,28 @@ processing_order = "jinja2_first"
 verbose = true
 ```
 
-### Examples
+### Usage Examples
 
-1. **Recommended: Use TOML configuration**:
+1. **Basic usage** (with MKFSource.toml in current directory):
    ```bash
-   mergesourcefile --config config.toml
+   mergesourcefile
    ```
 
-2. **Legacy: Process a SQL file with full processing** (deprecated):
-   ```bash
-   mergesourcefile -i main.sql -o merged.sql
+2. **With verbose output** (set in MKFSource.toml):
+   ```toml
+   [mergesourcefile]
+   input = "main.sql"
+   output = "merged.sql"
+   verbose = true
    ```
 
-3. **Legacy: Process only file inclusions, skip variable substitution** (deprecated):
-   ```bash
-   mergesourcefile -i main.sql -o merged.sql --skip-var
-   ```
-
-4. **Legacy: Process with verbose output** (deprecated):
-   ```bash
-   mergesourcefile -i main.sql -o merged.sql --verbose
-   ```
-
-5. **Legacy: Process with Jinja2 template support** (deprecated):
-   ```bash
-   mergesourcefile -i template.sql -o merged.sql --jinja2
+3. **With Jinja2 templates**:
+   ```toml
+   [mergesourcefile]
+   input = "template.sql"
+   output = "merged.sql"
+   jinja2 = true
+   jinja2_vars = "vars.json"
    ```
 
 6. **Legacy: Process with Jinja2 variables** (deprecated):
@@ -402,54 +393,56 @@ The new TOML configuration file approach offers a cleaner, more maintainable way
 #### Step 1: Create a TOML Configuration File
 
 Instead of:
+## Migration Guide from v1.3.0 to v1.4.0
+
+**BREAKING CHANGE**: v1.4.0 removes all command-line parameters. Follow these steps to migrate:
+
+### Step 1: Rename Your Configuration File
+
 ```bash
-mergesourcefile -i main.sql -o output.sql --verbose --skip-var
+# Old way (v1.3.0)
+mergesourcefile --config myconfig.toml
+
+# New way (v1.4.0)
+mv myconfig.toml MKFSource.toml
+mergesourcefile
 ```
 
-Create a `config.toml` file:
+### Step 2: Place Configuration in Project Directory
+
+Ensure your `MKFSource.toml` is in the directory where you run `mergesourcefile`:
+
 ```toml
 [mergesourcefile]
 input = "main.sql"
 output = "output.sql"
 verbose = true
-skip_var = true
+skip_var = false
 ```
 
-Then run:
+### Step 3: Update Build Scripts
+
+**Before (v1.3.0)**:
 ```bash
-mergesourcefile --config config.toml
+#!/bin/bash
+mergesourcefile --config config.prod.toml
 ```
 
-#### Step 2: Migrating Jinja2 Configurations
-
-For projects using Jinja2, instead of:
+**After (v1.4.0)**:
 ```bash
-mergesourcefile -i template.sql -o output.sql --jinja2 --jinja2-vars vars.json --processing-order jinja2_first
+#!/bin/bash
+cp MKFSource.prod.toml MKFSource.toml
+mergesourcefile
 ```
 
-Use a TOML config:
-```toml
-[mergesourcefile]
-input = "template.sql"
-output = "output.sql"
-jinja2 = true
-jinja2_vars = "vars.json"
-processing_order = "jinja2_first"
-```
+### Benefits of Configuration-Only Interface
 
-#### Benefits of TOML Configuration
-
-1. **Version Control Friendly**: Configuration files can be committed to your repository
-2. **Project-Specific Settings**: Each project can have its own `config.toml`
-3. **Cleaner Scripts**: Simplifies build scripts and CI/CD pipelines
-4. **Self-Documenting**: Configuration files are easier to read and understand
-5. **No Shell Escaping**: Avoid issues with special characters in command-line parameters
-
-#### Deprecation Timeline
-
-- **v1.2.0**: TOML configuration introduced, deprecation warning added for command-line parameters
-- **v1.3.0** (planned): Increased warning severity
-- **v2.0.0** (future): Command-line parameters may be removed entirely
+1. **Simplified CLI**: No complex command-line arguments
+2. **Project-Based**: Each build configuration has its own file
+3. **Version Control Friendly**: Configuration files commit alongside source code
+4. **Self-Documenting**: Configuration file serves as documentation
+5. **Maintainable**: Easier to manage complex configurations
+6. **Team-Friendly**: Share configurations across team members
 
 ## Best Practices
 
@@ -472,7 +465,7 @@ SELECT * FROM users WHERE name = '{{ user_input | sql_escape }}';
 
 ### Performance Tips
 
-- Use `--skip-var` if you don't need SQL variable processing
+- Use `skip_var = true` in your MKFSource.toml if you don't need SQL variable processing
 - For large projects, consider splitting templates into smaller, focused files
 - Use Jinja2 comments `{# comment #}` instead of SQL comments for template-specific notes
 
