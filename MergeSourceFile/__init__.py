@@ -1,6 +1,6 @@
 """MergeSourceFile - A SQL*Plus script processor with Jinja2 template support for resolving file inclusions and variable substitutions."""
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __author__ = "Alejandro G."
 __license__ = "MIT"
 

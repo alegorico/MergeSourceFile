@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-10-23
+
+### Changed
+- **🚀 Configuration-Only Interface**
+  - **BREAKING CHANGE**: Removed all command-line parameters
+  - Tool now exclusively reads from `MKFSource.toml` in the current directory
+  - Simplified CLI: just run `mergesourcefile` with no arguments
+  - Each build configuration has its own dedicated TOML file
+  
+- **Standard Configuration File Name**
+  - Configuration file must be named `MKFSource.toml`
+  - Located in the current working directory
+  - Enables project-based workflow with version-controlled build configurations
+  
+- **Simplified Architecture**
+  - Removed argparse dependency and all CLI argument handling
+  - Cleaner, more focused codebase
+  - Better separation of concerns
+
+### Removed
+- All command-line parameters (`--config`, `--input`, `--output`, `--verbose`, etc.)
+- argparse dependency
+- CustomArgumentParser class
+- Deprecation warnings (no longer needed)
+
+### Migration Guide
+If upgrading from v1.3.0 or earlier:
+1. Create a `MKFSource.toml` file in your project directory
+2. Move your configuration from command-line arguments to the TOML file
+3. Run `mergesourcefile` (no arguments)
+
+Example migration:
+```bash
+# Old way (v1.3.0)
+mergesourcefile --config myconfig.toml
+
+# New way (v1.4.0)
+# Create MKFSource.toml with your configuration
+mergesourcefile
+```
+
 ## [1.3.0] - 2025-10-23
 
 ### Changed
