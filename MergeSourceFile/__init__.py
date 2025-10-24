@@ -1,19 +1,18 @@
 """
-MergeSourceFile - Sistema modular de procesamiento de archivos basado en plugins.
+MergeSourceFile - Sistema de plantillas basado en Jinja2.
 
-Arquitectura extensible que permite procesar archivos de texto mediante
-plugins configurables. El framework es agnóstico al tipo de procesamiento,
-permitiendo implementar cualquier lógica de transformación mediante plugins.
+Motor de plantillas Jinja2 con soporte para extensiones opcionales.
+Las extensiones permiten pre-procesar el contenido antes del renderizado Jinja2.
 
-Versión 2.0.0 - Breaking Changes
-================================
-Esta versión introduce una arquitectura completamente nueva basada en plugins.
-No es compatible con la API de la versión 1.x.
+Versión 2.0.0 - Nueva Arquitectura
+===================================
+Esta versión introduce una arquitectura simplificada centrada en Jinja2.
+El sistema de plugins ha sido reemplazado por extensiones opcionales.
 
-Los plugins disponibles se registran dinámicamente. Para consultar los plugins
-instalados, usa: `get_available_plugins()`
+Extensiones disponibles:
+- sqlplus: Compatibilidad con SQL*Plus (inclusiones @/@@, variables DEFINE)
 
-Para migrar código existente, consulta la documentación de migración.
+Para configurar extensiones, consulta la documentación.
 """
 
 __version__ = "2.0.0"
@@ -24,27 +23,12 @@ from .main import main
 
 # Core - API Principal
 from .config_loader import load_config
-from .resource_io import ResourceLoader
-from .plugin_system import (
-    ProcessingContext,
-    ProcessorPlugin,
-    PluginRegistry,
-    ProcessorPipeline
-)
-
-# Plugin System - Acceso a plugins disponibles
-from .plugins import get_available_plugins
+from .template_engine import TemplateEngine
 
 __all__ = [
     # Función principal
     "main",
     # Core API
     "load_config",
-    "ResourceLoader",
-    "ProcessingContext",
-    "ProcessorPlugin",
-    "PluginRegistry",
-    "ProcessorPipeline",
-    # Plugin Discovery
-    "get_available_plugins",
+    "TemplateEngine",
 ]

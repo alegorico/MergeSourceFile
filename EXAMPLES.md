@@ -1,533 +1,409 @@
-# MergeSourceFile - Practical Examples
+# MergeSourceFile - Usage Examples
 
-This document provides practical examples of using MergeSourceFile v2.0.0 with the new plugin-based architecture, hierarchical configuration format, and flexible processing pipelines.
+This document provides practical examples for common MergeSourceFile use cases. All examples use the v2.0.0 Jinja2-centric architecture.
 
-## 🆕 Configuration-Only Workflow (v2.0.0)
+## Table of Contents
 
-MergeSourceFile v2.0.0 uses a **configuration-only interface** with a new hierarchical format. All settings are specified in a `MKFSource.toml` file in your project directory.
+1. [Basic Jinja2 Templating](#1-basic-jinja2-templating)
+2. [Environment-Specific Deployments](#2-environment-specific-deployments)
+3. [SQLPlus Script Migration](#3-sqlplus-script-migration)
+4. [Schema Generation from Metadata](#4-schema-generation-from-metadata)
+5. [Complex Multi-File Projects](#5-complex-multi-file-projects)
+6. [Database Migration Scripts](#6-database-migration-scripts)
+7. [Conditional Feature Deployment](#7-conditional-feature-deployment)
+8. [Template Reuse with Macros](#8-template-reuse-with-macros)
 
-### Example 1: Basic Configuration
+---
 
-**MKFSource.toml**:
-```toml
-[project]
-input = "main.sql"
-output = "merged.sql"
+## 1. Basic Jinja2 Templating
 
-[plugins.sqlplus]
-enabled = true
-```
+**Use Case**: Simple variable substitution in SQL templates.
 
-**Command**:
-```bash
-mergesourcefile
-```
-
-That's it! The tool automatically reads from `MKFSource.toml`.
-
-### Example 2: Configuration with Jinja2
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "template.sql"
-output = "generated.sql"
-verbose = true
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "production_vars.json"
-```
-
-**production_vars.json**:
-```json
-{
-  "environment": "production",
-  "database": "PROD_DB",
-  "schema": "APP_SCHEMA",
-  "table_prefix": "PROD"
-}
-```
+### Files
 
 **template.sql**:
 ```sql
--- Generated for {{ environment | upper }} environment
--- Database: {{ database }}
+-- Application: {{ app_name }}
+-- Version: {{ version }}
+-- Environment: {{ environment }}
 
-{% if environment == 'production' %}
-@production_settings.sql
-{% else %}
-@development_settings.sql
-{% endif %}
-
-DEFINE schema={{ schema }};
-DEFINE prefix={{ table_prefix }};
-
-CREATE TABLE &prefix._USERS (
+CREATE TABLE {{ schema }}.users (
     id NUMBER PRIMARY KEY,
-    environment VARCHAR2(50) DEFAULT '{{ environment }}'
+    username VARCHAR2(50) NOT NULL,
+    email VARCHAR2(100),
+    created_date DATE DEFAULT SYSDATE,
+    app_version VARCHAR2(20) DEFAULT '{{ version }}'
 );
+
+COMMENT ON TABLE {{ schema }}.users IS 'User accounts for {{ app_name }}';
 ```
 
-**Command**:
-```bash
-mergesourcefile
-```
-
-### Example 3: Multiple Environment Configurations
-
-Create different TOML files for each environment and copy the appropriate one:
-
-**MKFSource.dev.toml**:
-```toml
-[project]
-input = "app.sql"
-output = "app_dev.sql"
-verbose = true
-execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "dev_vars.json"
-```
-
-**MKFSource.prod.toml**:
-```toml
-[project]
-input = "app.sql"
-output = "app_prod.sql"
-verbose = false
-execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "prod_vars.json"
-```
-
-**Usage**:
-```bash
-# For development
-cp MKFSource.dev.toml MKFSource.toml
-mergesourcefile
-
-# For production
-cp MKFSource.prod.toml MKFSource.toml
-mergesourcefile
-```
-
-### Example 4: Skip Variable Processing
-
-When you only want to resolve file inclusions without processing DEFINE variables:
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "includes.sql"
-output = "merged_includes.sql"
-
-[plugins.sqlplus]
-enabled = true
-skip_var = true
-```
-
-**Command**:
-```bash
-mergesourcefile
-```
-
-### Example 5: Debugging with Verbose Mode
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "debug.sql"
-output = "debug_output.sql"
-verbose = true
-
-[plugins.sqlplus]
-enabled = true
-skip_var = false
-```
-
-**Command**:
-```bash
-mergesourcefile
-```
-
-This will show detailed information about:
-- Which files are being included
-- Which variables are being defined
-- Which variables are being replaced and where
-
-## Processing Pipeline Examples
-
-### Example 6: Jinja2 First (Template-Driven Includes)
-
-Use when Jinja2 templates determine which files to include:
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "main.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "config.json"
-```
-
-**main.sql**:
-```sql
--- Jinja2 processes first, determines which file to include
-{% if environment == 'production' %}
-@production_config.sql
-{% else %}
-@development_config.sql
-{% endif %}
-```
-
-### Example 7: Variables First
-
-Use when SQL variables should affect Jinja2 templates:
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "main.sql"
-output = "output.sql"
-
-[plugins.sqlplus]
-enabled = true
-
-[plugins.jinja2]
-enabled = true
-variables_file = "vars.json"
-
-# execution_order moved to [project] section: execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]
-```
-
-## Enhanced DEFINE Syntax Support
-
-### Example 8: Improved DEFINE Statement Support
-
-**input.sql**:
-```sql
--- ✅ All of these now work correctly
-DEFINE schema_name = PRODUCTION;
-DEFINE table_prefix = TBL;
-DEFINE version_num = 2;
-
--- ✅ Enhanced support for complex values
-DEFINE decimal_value = 3.14;
-DEFINE hyphenated_code = ABC-123-XYZ;
-DEFINE complex_identifier = DB2_TABLE_V2_FINAL;
-DEFINE empty_string = '';
-
--- ✅ Quoted values still work as before
-DEFINE schema_desc = 'Production Database';
-DEFINE full_path = '/opt/oracle/data files/prod.dbf';
-
--- Using the variables
-CREATE TABLESPACE &schema_name._DATA
-DATAFILE '&full_path'
-SIZE &decimal_value.G;
-
-CREATE TABLE &table_prefix._USERS_&version_num (
-    id NUMBER,
-    code VARCHAR2(50) DEFAULT '&hyphenated_code'
-);
-```
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "input.sql"
-output = "output.sql"
-
-[plugins.sqlplus]
-enabled = true
-```
-
-### Example 9: Enhanced Error Reporting with Verbose Mode
-
-**Input with some invalid DEFINE statements**:
-```sql
--- Valid DEFINE statements
-DEFINE good_var = value123;
-DEFINE quoted_var = 'spaced value';
-
--- Invalid DEFINE statements (will be ignored)
-DEFINE bad_var = ;
-DEFINE = no_name_here;
-DEFINE another_bad =;
-
--- Using the valid variables
-SELECT '&good_var', '&quoted_var' FROM dual;
-```
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "mixed_defines.sql"
-output = "output.sql"
-verbose = true
-
-[plugins.sqlplus]
-enabled = true
-```
-
-**Expected verbose output**:
-```
-Arbol de inclusiones:
-|-- mixed_defines.sql
-[VERBOSE] Definiendo variable: good_var = value123
-[VERBOSE] Definiendo variable: quoted_var = spaced value
-[VERBOSE] Ignorando DEFINE con sintaxis invalida en linea 6: 'DEFINE bad_var = ;'
-[VERBOSE] Ignorando DEFINE con sintaxis invalida en linea 7: 'DEFINE = no_name_here;'
-[VERBOSE] Ignorando DEFINE con sintaxis invalida en linea 8: 'DEFINE another_bad =;'
-[VERBOSE] Reemplazando variable good_var con valor value123 en la linea 11
-[VERBOSE] Reemplazando variable quoted_var con valor spaced value en la linea 11
-
-Resumen de sustituciones:
-good_var	1
-quoted_var	1
-```
-
-### Example 10: ⚠️ Common Pitfall: Spaces in Unquoted Values
-
-**DANGEROUS Example - This WILL FAIL**:
-```sql
--- Input file with risky syntax
-DEFINE schema_name = {{ schema_name }};        -- ❌ NO quotes
-DEFINE table_space = {{ table_space }};       -- ❌ NO quotes  
-DEFINE max_conn = {{ max_connections }};      -- ✅ OK (number)
-
-CREATE TABLESPACE &table_space;
-```
-
-**JSON with spaces**:
+**variables.json**:
 ```json
 {
-  "schema_name": "MY PROD SCHEMA",
-  "table_space": "PROD DATA TS", 
-  "max_connections": 200
-}
-```
-
-**MKFSource.toml**:
-```toml
-[project]
-input = "dangerous.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "vars.json"
-```
-
-**Resulting output (BROKEN SQL*Plus syntax)**:
-```sql
--- ❌ THESE LINES WILL CAUSE SQL*PLUS ERRORS:
-DEFINE schema_name = MY PROD SCHEMA;           -- ❌ Invalid: missing quotes around spaced value
-DEFINE table_space = PROD DATA TS;            -- ❌ Invalid: missing quotes around spaced value
-DEFINE max_conn = 200;                        -- ✅ Valid: number without spaces
-
-CREATE TABLESPACE PROD DATA TS;               -- ❌ This will fail in SQL*Plus!
-```
-
-**FIXED Version (using quotes)**:
-```sql
--- Input file with safe syntax
-DEFINE schema_name = '{{ schema_name }}';      -- ✅ With quotes
-DEFINE table_space = '{{ table_space }}';     -- ✅ With quotes
-DEFINE max_conn = {{ max_connections }};      -- ✅ OK (number)
-
-CREATE TABLESPACE &table_space;
-```
-
-**Resulting output (CORRECT SQL*Plus syntax)**:
-```sql
--- ✅ THESE LINES ARE VALID SQL*PLUS:
-DEFINE schema_name = 'MY PROD SCHEMA';         -- ✅ Valid: quoted value with spaces
-DEFINE table_space = 'PROD DATA TS';          -- ✅ Valid: quoted value with spaces  
-DEFINE max_conn = 200;                        -- ✅ Valid: number without quotes
-
-CREATE TABLESPACE PROD DATA TS;               -- ✅ This works correctly!
-```
-
-## Jinja2 Integration Examples
-
-### Example 11: Simple Variable Substitution
-
-**⚠️ Important: Quoted vs Unquoted Jinja2 Variables in DEFINE**
-
-```sql
--- ✅ CORRECT: Use quotes when Jinja2 variable might contain spaces or special characters
-DEFINE schema_name = '{{ schema_name }}';     -- Results in: DEFINE schema_name = 'PROD_SCHEMA';
-DEFINE table_space = '{{ table_space }}';     -- Results in: DEFINE table_space = 'PROD_TS';
-DEFINE file_path = '{{ base_path }}/data';    -- Results in: DEFINE file_path = '/opt/oracle data/data';
-
--- ✅ CORRECT: No quotes when Jinja2 variable contains simple numeric values
-DEFINE max_connections = {{ max_connections }}; -- Results in: DEFINE max_connections = 100;
-DEFINE timeout_seconds = {{ timeout }};         -- Results in: DEFINE timeout_seconds = 30;
-
--- ⚠️ RISKY: No quotes with string variables - ONLY if you're 100% sure no spaces
-DEFINE schema_prefix = {{ prefix }};          -- OK if prefix = "PROD" (no spaces)
-                                             -- FAILS if prefix = "PROD SCHEMA" (has spaces)
-
--- ❌ DANGEROUS: This WILL FAIL with spaces or special characters
-DEFINE schema_name = {{ schema_name }};       -- Results in: DEFINE schema_name = PROD SCHEMA; 
-                                             -- ❌ SQL*Plus syntax error!
-
--- 💡 SAFE ALTERNATIVE: Always use quotes for strings to avoid syntax errors
-DEFINE max_connections = '{{ max_connections }}'; -- Results in: DEFINE max_connections = '100'; 
-                                                  -- ✅ Works but treats number as string
-```
-
-**🔥 Critical Rule: When in doubt, use quotes! They prevent SQL*Plus syntax errors.**
-
-**config.sql**:
-```sql
--- Database configuration for {{ environment }}
-DEFINE schema_name = '{{ schema_name }}';      -- String value needs quotes
-DEFINE table_space = '{{ table_space }}';      -- String value needs quotes
-DEFINE max_connections = {{ max_connections }}; -- Numeric value, no quotes
-DEFINE timeout_seconds = {{ timeout }};        -- Numeric value, no quotes
-
-CREATE TABLESPACE &table_space
-DATAFILE '{{ data_file_path }}' 
-SIZE {{ initial_size }};
-
-ALTER SYSTEM SET sessions = &max_connections;
-ALTER SYSTEM SET sql_trace_wait_time = &timeout_seconds;
-```
-
-**vars.json**:
-```json
-{
+  "app_name": "MyApplication",
+  "version": "2.0.0",
   "environment": "production",
-  "schema_name": "PROD_SCHEMA",
-  "table_space": "PROD_TS",
-  "max_connections": 200,
-  "timeout": 60,
-  "data_file_path": "/opt/oracle/data/prod.dbf",
-  "initial_size": "1G"
+  "schema": "APP_SCHEMA"
 }
 ```
 
 **MKFSource.toml**:
 ```toml
 [project]
-input = "config.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "template.sql"
+output_file = "output.sql"
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "vars.json"
+vars_file = "variables.json"
 ```
 
-**Expected output**:
+### Run
+
+```bash
+mergesourcefile
+```
+
+### Output (output.sql)
+
 ```sql
--- Database configuration for production
-DEFINE schema_name = 'PROD_SCHEMA';
-DEFINE table_space = 'PROD_TS';
-DEFINE max_connections = 200;
-DEFINE timeout_seconds = 60;
+-- Application: MyApplication
+-- Version: 2.0.0
+-- Environment: production
 
-CREATE TABLESPACE PROD_TS
-DATAFILE '/opt/oracle/data/prod.dbf' 
-SIZE 1G;
+CREATE TABLE APP_SCHEMA.users (
+    id NUMBER PRIMARY KEY,
+    username VARCHAR2(50) NOT NULL,
+    email VARCHAR2(100),
+    created_date DATE DEFAULT SYSDATE,
+    app_version VARCHAR2(20) DEFAULT '2.0.0'
+);
 
-ALTER SYSTEM SET sessions = 200;
-ALTER SYSTEM SET sql_trace_wait_time = 60;
+COMMENT ON TABLE APP_SCHEMA.users IS 'User accounts for MyApplication';
 ```
 
-### Example 12: Conditional Logic
+---
+
+## 2. Environment-Specific Deployments
+
+**Use Case**: Generate different SQL for dev/test/prod environments.
+
+### Files
 
 **deploy.sql**:
 ```sql
--- Deployment script for {{ environment }}
-{% if environment == 'production' %}
--- Production-specific settings
+-- Deployment Script
+-- Environment: {{ env }}
+-- Generated: {{ now|strftime('%Y-%m-%d %H:%M:%S') }}
+
+-- Environment-specific database parameters
+{% if env == "production" %}
+ALTER SYSTEM SET sga_target = 8G;
+ALTER SYSTEM SET pga_aggregate_target = 4G;
+ALTER SYSTEM SET processes = 500;
+{% elif env == "test" %}
+ALTER SYSTEM SET sga_target = 4G;
+ALTER SYSTEM SET pga_aggregate_target = 2G;
+ALTER SYSTEM SET processes = 200;
+{% else %}
 ALTER SYSTEM SET sga_target = 2G;
 ALTER SYSTEM SET pga_aggregate_target = 1G;
-{% else %}
--- Development/Test settings
-ALTER SYSTEM SET sga_target = 512M;
-ALTER SYSTEM SET pga_aggregate_target = 256M;
+ALTER SYSTEM SET processes = 100;
 {% endif %}
 
-{% if backup_enabled %}
--- Enable backup
-ALTER DATABASE ARCHIVELOG;
+-- Create tablespace with environment-specific settings
+CREATE TABLESPACE {{ tablespace_name }}
+  DATAFILE '{{ datafile_path }}' 
+  SIZE {{ datafile_size }}
+  AUTOEXTEND ON
+  {% if env == "production" %}
+  NEXT 1G MAXSIZE UNLIMITED
+  {% else %}
+  NEXT 100M MAXSIZE 10G
+  {% endif %}
+  EXTENT MANAGEMENT LOCAL;
+
+-- Grant privileges
+{% if env == "production" %}
+-- Production: Read-only for app_reader role
+GRANT SELECT ON {{ schema }}.* TO app_reader;
+{% else %}
+-- Non-production: Full access for developers
+GRANT ALL ON {{ schema }}.* TO developers;
 {% endif %}
 ```
 
-**environment.json**:
+**prod.json**:
 ```json
 {
-  "environment": "production",
-  "backup_enabled": true
+  "env": "production",
+  "tablespace_name": "PROD_DATA",
+  "datafile_path": "/oradata/prod/data01.dbf",
+  "datafile_size": "50G",
+  "schema": "PROD_SCHEMA",
+  "now": "2025-10-24 10:30:00"
+}
+```
+
+**dev.json**:
+```json
+{
+  "env": "development",
+  "tablespace_name": "DEV_DATA",
+  "datafile_path": "/oradata/dev/data01.dbf",
+  "datafile_size": "5G",
+  "schema": "DEV_SCHEMA",
+  "now": "2025-10-24 10:30:00"
 }
 ```
 
 **MKFSource.toml**:
 ```toml
 [project]
-input = "deploy.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "deploy.sql"
+output_file = "deploy_output.sql"
+backup = true
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "environment.json"
+vars_file = "prod.json"  # Change to dev.json for dev deployment
 ```
 
-### Example 13: Loops for Repetitive Structures
+---
 
-**create_tables.sql**:
+## 3. SQLPlus Script Migration
+
+**Use Case**: Maintain legacy SQLPlus scripts while gradually migrating to Jinja2.
+
+### Files
+
+**legacy_script.sql**:
 ```sql
--- Create multiple tables
-{% for table in tables %}
-CREATE TABLE {{ table.name }} (
+-- Legacy SQLPlus script with includes and DEFINE variables
+PROMPT Loading common utilities...
+@utils/common_settings.sql
+@@local/db_params.sql
+
+DEFINE schema='HR'
+DEFINE version='2.0'
+DEFINE table_prefix='EMP_'
+
+PROMPT Creating tables with prefix: &table_prefix
+
+CREATE TABLE &schema..&table_prefix.EMPLOYEES (
     id NUMBER PRIMARY KEY,
-    {% for column in table.columns -%}
-    {{ column.name }} {{ column.type }}{% if column.nullable %} NULL{% else %} NOT NULL{% endif %}{% if not loop.last %},{% endif %}
+    name VARCHAR2(100),
+    department VARCHAR2(50),
+    version VARCHAR2(10) DEFAULT '&version'
+);
+
+CREATE TABLE &schema..&table_prefix.DEPARTMENTS (
+    id NUMBER PRIMARY KEY,
+    name VARCHAR2(100)
+);
+
+UNDEFINE schema
+UNDEFINE version
+UNDEFINE table_prefix
+```
+
+**utils/common_settings.sql**:
+```sql
+-- Common database settings
+SET SERVEROUTPUT ON
+SET LINESIZE 200
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+```
+
+**local/db_params.sql**:
+```sql
+-- Local database parameters (relative to parent file)
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input_file = "legacy_script.sql"
+output_file = "merged_script.sql"
+verbose = true
+
+[jinja2]
+enabled = true
+
+[jinja2.extensions]
+sqlplus = true
+
+[jinja2.extensions.sqlplus]
+process_includes = true
+process_defines = true
+```
+
+### Output
+
+All `@` includes will be expanded, and all `&variables` will be substituted inline.
+
+---
+
+## 4. Schema Generation from Metadata
+
+**Use Case**: Generate database schema from JSON metadata.
+
+### Files
+
+**schema_template.sql**:
+```sql
+-- Database Schema Generator
+-- Generated: {{ now|strftime('%Y-%m-%d') }}
+
+{% for table in tables %}
+-- ============================================================================
+-- Table: {{ table.name }}
+-- Description: {{ table.description }}
+-- ============================================================================
+
+CREATE TABLE {{ table.name }} (
+    {% for column in table.columns %}
+    {{ "%-30s"|format(column.name) }} {{ "%-20s"|format(column.type) }}
+    {%- if column.primary_key %} PRIMARY KEY{% endif %}
+    {%- if column.not_null and not column.primary_key %} NOT NULL{% endif %}
+    {%- if column.unique %} UNIQUE{% endif %}
+    {%- if column.default %} DEFAULT {{ column.default }}{% endif %}
+    {%- if not loop.last %},{% endif %}
     {% endfor %}
 );
 
-CREATE INDEX idx_{{ table.name }}_id ON {{ table.name }}(id);
-{% if table.audit %}
--- Audit table for {{ table.name }}
-CREATE TABLE {{ table.name }}_audit AS SELECT * FROM {{ table.name }} WHERE 1=0;
+{% if table.indexes %}
+-- Indexes for {{ table.name }}
+{% for index in table.indexes %}
+CREATE {% if index.unique %}UNIQUE {% endif %}INDEX {{ index.name }} 
+    ON {{ table.name }} ({{ index.columns|join(', ') }});
+{% endfor %}
+{% endif %}
+
+{% if table.comment %}
+COMMENT ON TABLE {{ table.name }} IS '{{ table.comment|sql_escape }}';
 {% endif %}
 
 {% endfor %}
+
+-- ============================================================================
+-- Foreign Keys
+-- ============================================================================
+
+{% for table in tables %}
+{% if table.foreign_keys %}
+{% for fk in table.foreign_keys %}
+ALTER TABLE {{ table.name }}
+    ADD CONSTRAINT {{ fk.name }}
+    FOREIGN KEY ({{ fk.columns|join(', ') }})
+    REFERENCES {{ fk.ref_table }}({{ fk.ref_columns|join(', ') }})
+    {% if fk.on_delete %}ON DELETE {{ fk.on_delete }}{% endif %};
+{% endfor %}
+{% endif %}
+{% endfor %}
 ```
 
-**tables.json**:
+**metadata.json**:
 ```json
 {
+  "now": "2025-10-24",
   "tables": [
     {
       "name": "users",
-      "audit": true,
+      "description": "Application users",
+      "comment": "Stores user account information",
       "columns": [
-        {"name": "username", "type": "VARCHAR2(50)", "nullable": false},
-        {"name": "email", "type": "VARCHAR2(100)", "nullable": false},
-        {"name": "created_date", "type": "DATE", "nullable": true}
-      ]
+        {
+          "name": "id",
+          "type": "NUMBER",
+          "primary_key": true,
+          "not_null": true
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR2(50)",
+          "not_null": true,
+          "unique": true
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR2(100)",
+          "not_null": true
+        },
+        {
+          "name": "created_date",
+          "type": "DATE",
+          "default": "SYSDATE"
+        },
+        {
+          "name": "active",
+          "type": "CHAR(1)",
+          "default": "'Y'",
+          "not_null": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_users_email",
+          "columns": ["email"],
+          "unique": true
+        },
+        {
+          "name": "idx_users_created",
+          "columns": ["created_date"],
+          "unique": false
+        }
+      ],
+      "foreign_keys": []
     },
     {
-      "name": "products",
-      "audit": false,
+      "name": "orders",
+      "description": "Customer orders",
+      "comment": "Stores order information",
       "columns": [
-        {"name": "title", "type": "VARCHAR2(200)", "nullable": false},
-        {"name": "price", "type": "NUMBER(10,2)", "nullable": false}
+        {
+          "name": "id",
+          "type": "NUMBER",
+          "primary_key": true
+        },
+        {
+          "name": "user_id",
+          "type": "NUMBER",
+          "not_null": true
+        },
+        {
+          "name": "order_date",
+          "type": "DATE",
+          "default": "SYSDATE"
+        },
+        {
+          "name": "total",
+          "type": "NUMBER(10,2)",
+          "not_null": true
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR2(20)",
+          "default": "'PENDING'"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_orders_user",
+          "columns": ["user_id"],
+          "unique": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "fk_orders_user",
+          "columns": ["user_id"],
+          "ref_table": "users",
+          "ref_columns": ["id"],
+          "on_delete": "CASCADE"
+        }
       ]
     }
   ]
@@ -537,389 +413,563 @@ CREATE TABLE {{ table.name }}_audit AS SELECT * FROM {{ table.name }} WHERE 1=0;
 **MKFSource.toml**:
 ```toml
 [project]
-input = "create_tables.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "schema_template.sql"
+output_file = "schema_generated.sql"
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "tables.json"
+vars_file = "metadata.json"
 ```
 
-## Advanced Examples
+---
 
-### Example 14: Dynamic File Inclusion
+## 5. Complex Multi-File Projects
+
+**Use Case**: Large project with multiple included files and shared variables.
+
+### Project Structure
+
+```
+project/
+├── MKFSource.toml
+├── main.sql
+├── variables.json
+├── common/
+│   ├── header.sql
+│   └── footer.sql
+├── ddl/
+│   ├── tables.sql
+│   └── indexes.sql
+└── dml/
+    ├── seed_data.sql
+    └── test_data.sql
+```
+
+### Files
 
 **main.sql**:
 ```sql
--- Main deployment script
--- Generated on {{ now() | strftime('%Y-%m-%d %H:%M:%S') }}
+@common/header.sql
 
-{# Include environment-specific configuration #}
-{% if environment == 'production' %}
-@config/prod_config.sql
-@config/prod_security.sql
-{% elif environment == 'staging' %}
-@config/staging_config.sql
-{% else %}
-@config/dev_config.sql
+-- ============================================================================
+-- DDL Section
+-- ============================================================================
+
+@ddl/tables.sql
+@ddl/indexes.sql
+
+-- ============================================================================
+-- DML Section
+-- ============================================================================
+
+{% if include_seed_data %}
+@dml/seed_data.sql
 {% endif %}
 
-{# Include feature-specific scripts based on enabled features #}
-{% for feature in enabled_features %}
-@features/{{ feature }}.sql
-{% endfor %}
+{% if environment == "development" %}
+@dml/test_data.sql
+{% endif %}
 
--- Common scripts
-@common/create_base_tables.sql
-@common/insert_reference_data.sql
+@common/footer.sql
 ```
 
-**environment.json**:
+**common/header.sql**:
+```sql
+-- ============================================================================
+-- Database Deployment Script
+-- Project: {{ project_name }}
+-- Version: {{ version }}
+-- Environment: {{ environment }}
+-- Generated: {{ now|strftime('%Y-%m-%d %H:%M:%S') }}
+-- ============================================================================
+
+SET ECHO OFF
+SET SERVEROUTPUT ON
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+```
+
+**common/footer.sql**:
+```sql
+-- ============================================================================
+-- Deployment Complete
+-- ============================================================================
+
+COMMIT;
+EXIT;
+```
+
+**ddl/tables.sql**:
+```sql
+-- Tables for {{ project_name }}
+
+CREATE TABLE {{ schema }}.users (
+    id NUMBER PRIMARY KEY,
+    username VARCHAR2(50) NOT NULL
+);
+
+CREATE TABLE {{ schema }}.logs (
+    id NUMBER PRIMARY KEY,
+    message VARCHAR2(4000),
+    log_date DATE DEFAULT SYSDATE
+);
+```
+
+**variables.json**:
 ```json
 {
-  "environment": "production",
-  "enabled_features": ["audit", "reporting", "notifications"]
+  "project_name": "MyApp",
+  "version": "2.0.0",
+  "environment": "development",
+  "schema": "APP_DEV",
+  "include_seed_data": true,
+  "now": "2025-10-24 10:00:00"
 }
 ```
 
-**MKFSource.toml (using jinja2_first order)**:
+**MKFSource.toml**:
 ```toml
 [project]
-input = "main.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "main.sql"
+output_file = "deployment.sql"
+backup = true
+verbose = true
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "environment.json"
+vars_file = "variables.json"
+
+[jinja2.extensions]
+sqlplus = true
+
+[jinja2.extensions.sqlplus]
+process_includes = true
+process_defines = false
 ```
 
-### Example 15: SQL Injection Protection
+---
 
-**data_script.sql**:
+## 6. Database Migration Scripts
+
+**Use Case**: Version-controlled database migrations with rollback support.
+
+### Files
+
+**migration_v2_0_0.sql**:
 ```sql
--- Insert user data with proper escaping
-{% for user in users %}
-INSERT INTO users (username, email, full_name, bio) 
-VALUES (
-    '{{ user.username | sql_escape }}',
-    '{{ user.email | sql_escape }}',
-    '{{ user.full_name | sql_escape }}',
-    '{{ user.bio | sql_escape }}'
+-- Migration Script: v{{ from_version }} → v{{ to_version }}
+-- Date: {{ now|strftime('%Y-%m-%d') }}
+
+{% if migration_type == "upgrade" %}
+-- ============================================================================
+-- UPGRADE from {{ from_version }} to {{ to_version }}
+-- ============================================================================
+
+-- Step 1: Add new columns
+{% for table, columns in new_columns.items() %}
+{% for column in columns %}
+ALTER TABLE {{ table }} ADD {{ column.name }} {{ column.type }}
+{% if column.default %} DEFAULT {{ column.default }}{% endif %};
+{% endfor %}
+{% endfor %}
+
+-- Step 2: Migrate data
+{% for migration in data_migrations %}
+UPDATE {{ migration.table }}
+SET {{ migration.column }} = {{ migration.value }}
+WHERE {{ migration.condition }};
+{% endfor %}
+
+-- Step 3: Create new tables
+{% for table in new_tables %}
+CREATE TABLE {{ table.name }} (
+{% for col in table.columns %}
+    {{ col.name }} {{ col.type }}{% if not loop.last %},{% endif %}
+{% endfor %}
 );
 {% endfor %}
 
--- Update statement with user input
-UPDATE users 
-SET last_login = SYSDATE,
-    notes = '{{ user_notes | sql_escape }}'
-WHERE username = '{{ current_user | sql_escape }}';
+{% elif migration_type == "rollback" %}
+-- ============================================================================
+-- ROLLBACK from {{ to_version }} to {{ from_version }}
+-- ============================================================================
+
+-- Drop new tables
+{% for table in new_tables %}
+DROP TABLE {{ table.name }};
+{% endfor %}
+
+-- Remove new columns
+{% for table, columns in new_columns.items() %}
+{% for column in columns %}
+ALTER TABLE {{ table }} DROP COLUMN {{ column.name }};
+{% endfor %}
+{% endfor %}
+
+{% endif %}
+
+-- Update version
+UPDATE system_config SET version = '{{ to_version }}' WHERE key = 'schema_version';
+COMMIT;
 ```
 
-**users.json**:
+**migration_config.json**:
 ```json
 {
-  "users": [
+  "migration_type": "upgrade",
+  "from_version": "1.9.0",
+  "to_version": "2.0.0",
+  "now": "2025-10-24",
+  "new_columns": {
+    "users": [
+      {"name": "last_login", "type": "DATE", "default": null},
+      {"name": "login_count", "type": "NUMBER", "default": "0"}
+    ]
+  },
+  "data_migrations": [
     {
-      "username": "john_doe",
-      "email": "john@example.com",
-      "full_name": "John O'Brien",
-      "bio": "Software developer who loves 'coding' and databases"
+      "table": "users",
+      "column": "active",
+      "value": "'Y'",
+      "condition": "active IS NULL"
     }
   ],
-  "current_user": "admin",
-  "user_notes": "User said: 'Everything looks good!'"
+  "new_tables": [
+    {
+      "name": "audit_log",
+      "columns": [
+        {"name": "id", "type": "NUMBER PRIMARY KEY"},
+        {"name": "action", "type": "VARCHAR2(100)"},
+        {"name": "timestamp", "type": "DATE DEFAULT SYSDATE"}
+      ]
+    }
+  ]
 }
 ```
 
 **MKFSource.toml**:
 ```toml
 [project]
-input = "data_script.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "migration_v2_0_0.sql"
+output_file = "migration_upgrade.sql"
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "users.json"
+vars_file = "migration_config.json"
 ```
 
-### Example 16: Date Formatting
+---
 
-**audit_script.sql**:
+## 7. Conditional Feature Deployment
+
+**Use Case**: Enable/disable features based on license or configuration.
+
+### Files
+
+**features.sql**:
 ```sql
--- Audit script generated on {{ now() | strftime('%A, %B %d, %Y at %I:%M %p') }}
+-- Feature Deployment Script
+-- License: {{ license_type }}
 
-CREATE TABLE audit_log_{{ now() | strftime('%Y%m%d') }} (
+-- Core features (always included)
+CREATE TABLE core_users (
     id NUMBER PRIMARY KEY,
-    action_date DATE DEFAULT SYSDATE,
-    action_type VARCHAR2(50),
-    description CLOB
+    username VARCHAR2(50)
 );
 
--- Archive old data (older than {{ cutoff_date | strftime('%Y-%m-%d') }})
-INSERT INTO archive_table 
-SELECT * FROM main_table 
-WHERE created_date < DATE '{{ cutoff_date | strftime('%Y-%m-%d') }}';
+{% if features.analytics %}
+-- ============================================================================
+-- Analytics Module (Premium Feature)
+-- ============================================================================
+
+CREATE TABLE analytics_events (
+    id NUMBER PRIMARY KEY,
+    event_type VARCHAR2(50),
+    event_data CLOB,
+    created_date DATE DEFAULT SYSDATE
+);
+
+CREATE INDEX idx_analytics_type ON analytics_events(event_type);
+CREATE INDEX idx_analytics_date ON analytics_events(created_date);
+{% endif %}
+
+{% if features.reporting %}
+-- ============================================================================
+-- Reporting Module (Enterprise Feature)
+-- ============================================================================
+
+CREATE TABLE reports (
+    id NUMBER PRIMARY KEY,
+    name VARCHAR2(100),
+    definition CLOB,
+    {% if features.scheduled_reports %}
+    schedule VARCHAR2(100),
+    last_run DATE,
+    {% endif %}
+    created_date DATE DEFAULT SYSDATE
+);
+{% endif %}
+
+{% if features.api_access %}
+-- ============================================================================
+-- API Access (Professional+ Feature)
+-- ============================================================================
+
+CREATE TABLE api_keys (
+    id NUMBER PRIMARY KEY,
+    user_id NUMBER,
+    api_key VARCHAR2(64) UNIQUE,
+    rate_limit NUMBER DEFAULT {{ api_rate_limit }},
+    created_date DATE DEFAULT SYSDATE,
+    FOREIGN KEY (user_id) REFERENCES core_users(id)
+);
+{% endif %}
+
+-- ============================================================================
+-- Feature Summary
+-- ============================================================================
+
+-- License Type: {{ license_type }}
+-- Enabled Features:
+{% for feature, enabled in features.items() %}
+--   - {{ feature }}: {{ "YES" if enabled else "NO" }}
+{% endfor %}
 ```
 
-**audit_config.json**:
+**enterprise.json**:
 ```json
 {
-  "cutoff_date": "2024-01-01"
+  "license_type": "Enterprise",
+  "features": {
+    "analytics": true,
+    "reporting": true,
+    "scheduled_reports": true,
+    "api_access": true,
+    "audit_logging": true
+  },
+  "api_rate_limit": 10000
+}
+```
+
+**basic.json**:
+```json
+{
+  "license_type": "Basic",
+  "features": {
+    "analytics": false,
+    "reporting": false,
+    "scheduled_reports": false,
+    "api_access": false,
+    "audit_logging": false
+  },
+  "api_rate_limit": 100
 }
 ```
 
 **MKFSource.toml**:
 ```toml
 [project]
-input = "audit_script.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+input_file = "features.sql"
+output_file = "deployment.sql"
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "audit_config.json"
+vars_file = "enterprise.json"  # Change to basic.json for basic license
 ```
 
-### Example 17: Complex Processing Order
+---
 
-**complex.sql**:
+## 8. Template Reuse with Macros
+
+**Use Case**: Define reusable SQL patterns using Jinja2 macros.
+
+### Files
+
+**templates.sql**:
 ```sql
--- Complex script demonstrating processing order
+{# Macro: Create audit columns #}
+{% macro audit_columns() %}
+    created_by VARCHAR2(50) NOT NULL,
+    created_date DATE DEFAULT SYSDATE,
+    modified_by VARCHAR2(50),
+    modified_date DATE
+{% endmacro %}
 
-DEFINE base_schema = 'MYAPP';
+{# Macro: Create standard table with audit #}
+{% macro create_table(name, columns) %}
+CREATE TABLE {{ name }} (
+    id NUMBER PRIMARY KEY,
+{% for col in columns %}
+    {{ col.name }} {{ col.type }}{% if col.not_null %} NOT NULL{% endif %},
+{% endfor %}
+    {{ audit_columns() }}
+);
+{% endmacro %}
 
-{# Jinja2 will determine which config to include #}
-{% if environment == 'production' %}
-@@ prod_includes.sql
-{% else %}
-@@ dev_includes.sql
-{% endif %}
+{# Macro: Create audit trigger #}
+{% macro audit_trigger(table_name) %}
+CREATE OR REPLACE TRIGGER trg_{{ table_name }}_audit
+BEFORE UPDATE ON {{ table_name }}
+FOR EACH ROW
+BEGIN
+    :NEW.modified_by := USER;
+    :NEW.modified_date := SYSDATE;
+END;
+/
+{% endmacro %}
 
--- Using both SQL and Jinja2 variables
-CREATE VIEW &base_schema..user_summary_{{ environment }} AS
-SELECT 
-    user_id,
-    username,
-    '{{ report_title }}' as report_title,
-    '&base_schema' as schema_name
-FROM &base_schema..users;
+-- ============================================================================
+-- Generate Tables with Macros
+-- ============================================================================
+
+{% for table in tables %}
+{{ create_table(table.name, table.columns) }}
+{{ audit_trigger(table.name) }}
+
+{% endfor %}
 ```
 
-**complex_vars.json**:
+**tables.json**:
 ```json
 {
-  "environment": "prod",
-  "report_title": "Production Report"
+  "tables": [
+    {
+      "name": "employees",
+      "columns": [
+        {"name": "first_name", "type": "VARCHAR2(50)", "not_null": true},
+        {"name": "last_name", "type": "VARCHAR2(50)", "not_null": true},
+        {"name": "email", "type": "VARCHAR2(100)", "not_null": true},
+        {"name": "salary", "type": "NUMBER(10,2)", "not_null": false}
+      ]
+    },
+    {
+      "name": "departments",
+      "columns": [
+        {"name": "name", "type": "VARCHAR2(100)", "not_null": true},
+        {"name": "location", "type": "VARCHAR2(100)", "not_null": false}
+      ]
+    }
+  ]
 }
 ```
 
-**Different processing orders**:
-
-**MKFSource_default.toml** (Default order: Includes → Jinja2 → SQL):
+**MKFSource.toml**:
 ```toml
 [project]
-input = "complex.sql"
-output = "output1.sql"
-execution_order = ["sqlplus_includes", "jinja2", "sqlplus_vars"]
+input_file = "templates.sql"
+output_file = "generated.sql"
 
-[plugins.jinja2]
+[jinja2]
 enabled = true
-variables_file = "complex_vars.json"
+vars_file = "tables.json"
 ```
 
-**MKFSource_jinja2_first.toml** (Jinja2 first - enables dynamic includes):
-```toml
-[project]
-input = "complex.sql"
-output = "output2.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
+---
 
-[plugins.jinja2]
-enabled = true
-variables_file = "complex_vars.json"
-```
+## Tips and Best Practices
 
-**MKFSource_includes_last.toml** (Includes last):
-```toml
-[project]
-input = "complex.sql"
-output = "output3.sql"
-execution_order = ["sqlplus_vars", "jinja2", "sqlplus_includes"]
+### 1. Organize Variables by Environment
 
-[plugins.jinja2]
-enabled = true
-variables_file = "complex_vars.json"
-```
-
-## Best Practices
-
-1. **DEFINE with Jinja2 Variables - Quote Management (CRITICAL)**:
-   ```sql
-   -- 🛡️ SAFE: Always use quotes for string values (prevents syntax errors)
-   DEFINE schema_name = '{{ schema_name }}';      -- Safe for "PROD", "PROD SCHEMA", "PROD-2"
-   DEFINE file_path = '{{ data_directory }}/{{ filename }}';  -- Safe for paths with spaces
-   DEFINE description = '{{ user_description }}'; -- Safe for any user input
-   
-   -- ⚡ PERFORMANCE: No quotes only for pure numeric values
-   DEFINE max_users = {{ user_limit }};           -- OK only if user_limit = 200 (pure number)
-   DEFINE buffer_size = {{ memory_mb }};          -- OK only if memory_mb = 1024 (pure number)
-   
-   -- ⚠️ RISKY: No quotes with variables that MIGHT contain spaces
-   DEFINE prefix = {{ env_prefix }};              -- DANGEROUS! Fails if env_prefix = "DEV TEST"
-   
-   -- 🔥 CRITICAL ERROR EXAMPLE:
-   -- JSON: {"schema": "MY PROD SCHEMA"}
-   DEFINE schema = {{ schema }};                  -- Results in: DEFINE schema = MY PROD SCHEMA;
-                                                  -- ❌ SQL*Plus ERROR: Invalid syntax!
-   
-   -- ✅ CORRECT VERSION:
-   DEFINE schema = '{{ schema }}';                -- Results in: DEFINE schema = 'MY PROD SCHEMA';
-                                                  -- ✅ Valid SQL*Plus syntax
-   ```
-
-   **💡 Golden Rule**: Use quotes unless you're 100% certain the variable contains only:
-   - Pure numbers (100, 3.14, -50)
-   - Simple identifiers without spaces (PROD, TEST, V2)
-
-2. **Use Verbose Mode for Debugging**:
-   ```toml
-   [project]
-   input = "script.sql"
-   output = "output.sql"
-   verbose = true  # Enable detailed logging
-   ```
-
-3. **Separate Concerns with Processing Order**:
-   - Use `["jinja2", "sqlplus_includes", "sqlplus_vars"]` when Jinja2 determines which files to include
-   - Use `["sqlplus_includes", "jinja2", "sqlplus_vars"]` (default) for most cases
-   - Use `["sqlplus_vars", "jinja2", "sqlplus_includes"]` when SQL variables affect Jinja2 templates
-
-4. **Always Use SQL Escape Filter for User Input**:
-   ```sql
-   INSERT INTO users (name, comment) 
-   VALUES ('{{ user.name | sql_escape }}', '{{ user.comment | sql_escape }}');
-   ```
-
-5. **Test Processing Orders**:
-   - Create different MKFSource configurations for testing
-   - Understand how plugin order affects the final output
-
-## Migration Examples
-
-### Migrating from CLI to Configuration File (v2.0.0)
-
-**Old approach (v1.x - NO LONGER WORKS)**:
 ```bash
-mergesourcefile -i existing.sql -o output.sql
+config/
+├── dev.json
+├── test.json
+├── staging.json
+└── prod.json
 ```
 
-**New approach (v2.0.0)**:
-```toml
-# MKFSource.toml
-[project]
-input = "existing.sql"
-output = "output.sql"
+Change `vars_file` in `MKFSource.toml` for each deployment.
 
-[plugins.sqlplus]
-enabled = true
+### 2. Use Comments to Document Templates
+
+```sql
+{# 
+  This template generates user tables
+  Variables required: schema, table_prefix
+#}
 ```
 
-Then run:
+### 3. Validate Generated SQL
+
 ```bash
 mergesourcefile
+sqlplus user/pass @output.sql
 ```
 
-### Adding Jinja2 to Existing Project
+### 4. Version Control Your Configurations
 
-**Before (v1.x - NO LONGER WORKS)**:
 ```bash
-mergesourcefile -i existing.sql -o output.sql --jinja2
+git add MKFSource.toml variables.json
+git commit -m "Update deployment configuration"
 ```
 
-**After (v2.0.0)**:
+### 5. Use Verbose Mode for Debugging
+
 ```toml
-# MKFSource.toml
 [project]
-input = "enhanced.sql"
-output = "output.sql"
-execution_order = ["jinja2", "sqlplus_includes", "sqlplus_vars"]
-
-[plugins.jinja2]
-enabled = true
-variables_file = "vars.json"
+verbose = true  # Shows detailed processing steps
 ```
 
-## Summary
+### 6. Always Use Backups When Overwriting
 
-MergeSourceFile v2.0.0 provides a powerful, flexible, plugin-based system for processing SQL*Plus scripts with template support. The new hierarchical configuration format makes it easy to:
-
-- Process SQL*Plus scripts with file inclusions
-- Apply Jinja2 templates with custom filters
-- Manage variables with DEFINE/UNDEFINE
-- Configure processing order for different workflows
-- Separate concerns between plugins
-- Version control your build configurations
-- Share configurations across teams
-
-For more information:
-- **Configuration Reference**: See `CONFIGURATION.md`
-- **Architecture Details**: See `ARCHITECTURE.md`
-- **Change Log**: See `CHANGELOG.md`
-- **Quick Start**: See `README.md`
-
-2. **Safe JSON Variable Design**:
-   ```json
-   {
-     "schema_name": "PROD_SCHEMA",           // ✅ Use quotes in DEFINE (no spaces)
-     "schema_desc": "Production Database",   // ✅ MUST use quotes (has spaces)
-     "max_connections": 200,                 // ✅ Can skip quotes (pure number)
-     "timeout_seconds": 30,                  // ✅ Can skip quotes (pure number)  
-     "environment": "production",            // ✅ Use quotes (string)
-     "data_path": "/opt/oracle data/files"   // ✅ MUST use quotes (has spaces)
-   }
-   ```
-
-2. **Use `sql_escape` filter** for any dynamic content that might contain single quotes:
-   ```sql
-   DEFINE user_comment = '{{ user_input | sql_escape }}';
-   ```
-
-3. **Choose the right processing order** based on your use case:
-   - `default`: Most common scenarios
-   - `jinja2_first`: When you need dynamic file inclusion
-   - `includes_last`: When SQL variables need to be processed before templates
-
-4. **Use Jinja2 comments** `{# ... #}` for template-specific documentation
-
-5. **Validate your JSON** before passing it to `--jinja2-vars`
-
-6. **Use `--verbose`** flag when debugging template issues
-
-7. **Test your variable types**:
-   ```json
-   {
-     "schema_name": "PROD_SCHEMA",           // String - use quotes in DEFINE
-     "max_connections": 200,                 // Number - no quotes in DEFINE  
-     "timeout_seconds": 30,                  // Number - no quotes in DEFINE
-     "debug_enabled": true,                  // Boolean - no quotes if using true/false
-     "environment": "production"             // String - use quotes in DEFINE
-   }
-   ```
-
-## Integration with Existing Scripts
-
-All existing MergeSourceFile scripts work without changes. You can gradually add Jinja2 features:
-
-```bash
-# Phase 1: Existing script (no changes needed)
-mergesourcefile -i existing.sql -o output.sql
-
-# Phase 2: Add Jinja2 processing (optional)
-mergesourcefile -i existing.sql -o output.sql --jinja2
-
-# Phase 3: Add Jinja2 variables and logic
-mergesourcefile -i enhanced.sql -o output.sql --jinja2 --jinja2-vars '{"env": "prod"}'
+```toml
+[project]
+output_file = "schema.sql"  # Same as input
+backup = true  # Creates schema.sql.bak
 ```
+
+### 7. Escape User Input in SQL
+
+```sql
+SELECT * FROM users WHERE name = '{{ username|sql_escape }}';
+```
+
+---
+
+## Advanced Patterns
+
+### Dynamic Table Generation
+
+```sql
+{% for i in range(1, 13) %}
+CREATE TABLE sales_{{ "%02d"|format(i) }}_{{ year }} (
+    id NUMBER PRIMARY KEY,
+    amount NUMBER(10,2),
+    sale_date DATE
+);
+{% endfor %}
+```
+
+### Conditional Indexes
+
+```sql
+{% if environment == "production" %}
+CREATE INDEX idx_large_table ON large_table(column1, column2)
+    TABLESPACE index_tbs
+    PARALLEL 4;
+{% else %}
+CREATE INDEX idx_large_table ON large_table(column1, column2);
+{% endif %}
+```
+
+### Loop with Conditionals
+
+```sql
+{% for user in users %}
+{% if user.active %}
+GRANT {{ user.role }} TO {{ user.username }};
+{% endif %}
+{% endfor %}
+```
+
+---
+
+## References
+
+- [Configuration Guide](CONFIGURATION.md) - Complete TOML reference
+- [Architecture Documentation](ARCHITECTURE.md) - System design
+- [API Documentation](API_DOCUMENTATION.md) - Python API
+- [Jinja2 Documentation](https://jinja.palletsprojects.com/) - Template syntax
+
+---
+
+**Need help?** Open an issue on [GitHub](https://github.com/alegorico/MergeSourceFile/issues)
