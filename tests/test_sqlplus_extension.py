@@ -20,7 +20,7 @@ class TestSQLPlusIncludes:
         input_file = temp_dir / "test.sql"
         input_file.write_text(content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=content,
             input_file=str(input_file),
             base_path=str(temp_dir),
@@ -28,7 +28,7 @@ class TestSQLPlusIncludes:
             verbose=False
         )
         
-        assert result == "SELECT 1 FROM dual;\n"
+        assert content_result == "SELECT 1 FROM dual;\n"
 
     def test_process_single_at_include(self, temp_dir):
         """Test inclusión con @ (relativo a base_path)"""
@@ -43,7 +43,7 @@ class TestSQLPlusIncludes:
         main_content = f"@{included.name}\nSELECT 'main';"
         main_file.write_text(main_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=main_content,
             input_file=str(main_file),
             base_path=str(temp_dir),
@@ -51,10 +51,10 @@ class TestSQLPlusIncludes:
             verbose=False
         )
         
-        assert "SELECT 'included';" in result
-        assert "SELECT 'main';" in result
+        assert "SELECT 'included';" in content_result
+        assert "SELECT 'main';" in content_result
         # Verificar orden
-        assert result.index("included") < result.index("main")
+        assert content_result.index("included") < content_result.index("main")
 
     def test_process_double_at_include(self, temp_dir):
         """Test inclusión con @@ (relativo a archivo padre)"""
@@ -73,7 +73,7 @@ class TestSQLPlusIncludes:
         main_content = f"@@{included.name}\nSELECT 'sub';"
         main_file.write_text(main_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=main_content,
             input_file=str(main_file),
             base_path=str(temp_dir),
@@ -81,8 +81,8 @@ class TestSQLPlusIncludes:
             verbose=False
         )
         
-        assert "SELECT 'root';" in result
-        assert "SELECT 'sub';" in result
+        assert "SELECT 'root';" in content_result
+        assert "SELECT 'sub';" in content_result
 
     def test_nested_includes(self, temp_dir):
         """Test inclusiones anidadas multinivel"""
@@ -101,7 +101,7 @@ class TestSQLPlusIncludes:
         level1_content = f"@{level2.name}\nSELECT 'level1';"
         level1.write_text(level1_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=level1_content,
             input_file=str(level1),
             base_path=str(temp_dir),
@@ -109,11 +109,11 @@ class TestSQLPlusIncludes:
             verbose=False
         )
         
-        assert "SELECT 'level3';" in result
-        assert "SELECT 'level2';" in result
-        assert "SELECT 'level1';" in result
+        assert "SELECT 'level3';" in content_result
+        assert "SELECT 'level2';" in content_result
+        assert "SELECT 'level1';" in content_result
         # Verificar orden correcto
-        assert result.index("level3") < result.index("level2") < result.index("level1")
+        assert content_result.index("level3") < content_result.index("level2") < content_result.index("level1")
 
     def test_include_file_not_found(self, temp_dir):
         """Test que se lanza error cuando archivo incluido no existe"""
@@ -143,7 +143,7 @@ class TestSQLPlusIncludes:
         main_content = f"@{included.name}"
         main_file.write_text(main_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=main_content,
             input_file=str(main_file),
             base_path=str(temp_dir),
@@ -152,8 +152,8 @@ class TestSQLPlusIncludes:
         )
         
         # No debería procesar la inclusión
-        assert "@" in result
-        assert "SELECT 'included';" not in result
+        assert "@" in content_result
+        assert "SELECT 'included';" not in content_result
 
 
 class TestSQLPlusDefines:
@@ -168,10 +168,10 @@ DEFINE env='production'
 SELECT '&env' FROM dual;
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "SELECT 'production' FROM dual;" in result
-        assert "DEFINE" not in result
+        assert "SELECT 'production' FROM dual;" in content_result
+        assert "DEFINE" not in content_result
 
     def test_multiple_defines(self):
         """Test múltiples definiciones de variables"""
@@ -184,9 +184,9 @@ DEFINE schema='public'
 SELECT '&env', '&db', '&schema';
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "SELECT 'prod', 'mydb', 'public';" in result
+        assert "SELECT 'prod', 'mydb', 'public';" in content_result
 
     def test_define_without_quotes(self):
         """Test DEFINE con valor sin comillas"""
@@ -197,9 +197,9 @@ DEFINE count=42
 SELECT &count FROM dual;
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "SELECT 42 FROM dual;" in result
+        assert "SELECT 42 FROM dual;" in content_result
 
     def test_variable_with_concatenation(self):
         """Test variable con concatenación (..)"""
@@ -210,9 +210,9 @@ DEFINE prefix='tbl'
 SELECT * FROM &prefix..users;
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "SELECT * FROM tbl.users;" in result
+        assert "SELECT * FROM tbl.users;" in content_result
 
     def test_undefine_variable(self):
         """Test que UNDEFINE elimina la variable"""
@@ -224,10 +224,10 @@ SELECT '&temp';
 UNDEFINE temp;
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "SELECT 'value';" in result
-        assert "UNDEFINE" not in result
+        assert "SELECT 'value';" in content_result
+        assert "UNDEFINE" not in content_result
 
     def test_variable_used_before_define_raises_error(self):
         """Test que usar variable antes de definirla lanza error"""
@@ -251,10 +251,10 @@ DEFINE var='value'
 SELECT '&var';
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert "-- This is a comment with &var" in result
-        assert "SELECT 'value';" in result
+        assert "-- This is a comment with &var" in content_result
+        assert "SELECT 'value';" in content_result
 
     def test_variable_reused_multiple_times(self):
         """Test que una variable se puede usar múltiples veces"""
@@ -267,10 +267,10 @@ INSERT INTO &table VALUES (1);
 UPDATE &table SET active=1;
 """.strip()
         
-        result = _process_defines(content, verbose=False)
+        content_result = _process_defines(content, verbose=False)
         
-        assert result.count("users") == 3
-        assert "&table" not in result
+        assert content_result.count("users") == 3
+        assert "&table" not in content_result
 
     def test_invalid_define_syntax_is_ignored(self):
         """Test que sintaxis DEFINE inválida se ignora"""
@@ -282,8 +282,8 @@ SELECT 1;
 """.strip()
         
         # No debería lanzar error, solo ignorar
-        result = _process_defines(content, verbose=False)
-        assert "SELECT 1;" in result
+        content_result = _process_defines(content, verbose=False)
+        assert "SELECT 1;" in content_result
 
     def test_skip_defines_when_disabled(self):
         """Test que DEFINE no se procesa cuando está deshabilitado"""
@@ -294,7 +294,7 @@ DEFINE var='value'
 SELECT '&var';
 """.strip()
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=content,
             input_file="test.sql",
             base_path=".",
@@ -303,8 +303,8 @@ SELECT '&var';
         )
         
         # No debería procesar DEFINE
-        assert "DEFINE" in result
-        assert "&var" in result
+        assert "DEFINE" in content_result
+        assert "&var" in content_result
 
 
 class TestSQLPlusIntegration:
@@ -327,7 +327,7 @@ SELECT '&env' FROM main;
 """.strip()
         main_file.write_text(main_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=main_content,
             input_file=str(main_file),
             base_path=str(temp_dir),
@@ -336,10 +336,10 @@ SELECT '&env' FROM main;
         )
         
         # Verificar que ambos se procesaron
-        assert "SELECT 'production' FROM included;" in result
-        assert "SELECT 'production' FROM main;" in result
-        assert "DEFINE" not in result
-        assert "&env" not in result
+        assert "SELECT 'production' FROM included;" in content_result
+        assert "SELECT 'production' FROM main;" in content_result
+        assert "DEFINE" not in content_result
+        assert "&env" not in content_result
 
     def test_define_in_included_file(self, temp_dir):
         """Test que DEFINE en archivo incluido afecta al principal"""
@@ -357,7 +357,7 @@ SELECT '&shared';
 """.strip()
         main_file.write_text(main_content, encoding='utf-8')
         
-        result = process_sqlplus(
+        content_result, variables = process_sqlplus(
             content=main_content,
             input_file=str(main_file),
             base_path=str(temp_dir),
@@ -365,4 +365,4 @@ SELECT '&shared';
             verbose=False
         )
         
-        assert "SELECT 'from_include';" in result
+        assert "SELECT 'from_include';" in content_result

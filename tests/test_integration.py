@@ -2,7 +2,7 @@
 import pytest
 import json
 from pathlib import Path
-from MergeSourceFile import main
+from MergeSourceFile.core import main
 
 
 class TestIntegrationEndToEnd:

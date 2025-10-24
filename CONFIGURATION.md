@@ -2,7 +2,17 @@
 
 ## Overview
 
-MergeSourceFile v2.0.0 uses a **Jinja2-centric architecture** with optional extensions. Configuration is stored in `MKFSource.toml` using the TOML format. The tool reads from a file named `MKFSource.toml` located in the current directory.
+MergeSourceFile v2.0.0 features a **streamlined unified architecture** with centralized extension management. Configuration is stored in `MKFSource.toml` using the TOML format. The tool reads from a file named `MKFSource.toml` located in the current directory.
+
+### 🚀 Quick Command Reference
+
+```bash
+# Use the short command (recommended)
+msf
+
+# Or the full command name
+mergesourcefile
+```
 
 ### ⚠️ Important: Include System Conflict Resolution
 
@@ -362,6 +372,87 @@ SQLPlus está manejando las inclusiones. Use '@archivo' en lugar de
 1. **New projects**: Use pure Jinja2 includes
 2. **Legacy migration**: Start with SQLPlus includes, gradually convert to Jinja2
 3. **Hybrid approach**: Use SQLPlus variables with Jinja2 includes during transition
+
+## Variable Namespace Management
+
+### Understanding Variable Systems
+
+MergeSourceFile handles two variable systems that can potentially conflict:
+
+1. **SQLPlus variables** (`DEFINE var=value`, `&var`): Processed during pre-processing
+2. **Jinja2 variables** (`{{ var }}`): Processed during template rendering
+
+### Forced Namespace Separation
+
+To prevent variable name conflicts, MergeSourceFile implements **forced namespace separation** for DEFINE variables:
+
+| Variable Type | Original Syntax | Available in Jinja2 |
+|---------------|-----------------|-------------------|
+| SQLPlus DEFINE | `DEFINE env=prod` → `&env` | `{{ sql_env }}` |
+| Jinja2 Variable | External/config | `{{ env }}` |
+
+### Configuration Examples
+
+#### Variables with Namespace Separation
+```toml
+[jinja2.extensions.sqlplus]
+process_defines = true  # Extract DEFINE variables to Jinja2 context
+```
+
+**Template usage:**
+```sql
+DEFINE schema=production_schema
+DEFINE env=prod
+
+-- Original SQLPlus syntax (still works)
+SELECT * FROM &schema.users WHERE env = '&env';
+
+-- Available in Jinja2 with sql_ prefix
+SELECT '{{ sql_schema }}' AS schema_from_define;
+SELECT '{{ sql_env }}' AS env_from_define;
+
+-- Mixed usage
+SELECT * FROM {{ sql_schema }}.{{ table_name }} 
+WHERE env = '{{ sql_env }}' AND status = '{{ status }}';
+```
+
+### Conflict Detection and Warnings
+
+When a variable name exists in both systems, MergeSourceFile warns you:
+
+```
+WARNING: CONFLICTO DE VARIABLES: La variable 'schema' está definida tanto en 
+SQLPlus como en Jinja2. Usando namespace forzado: SQLPlus 'schema' → Jinja2 '{{ sql_schema }}'
+```
+
+**Example scenario:**
+```sql
+DEFINE schema=sqlplus_value  -- Available as {{ sql_schema }}
+
+SELECT '{{ schema }}' AS jinja_var;      -- Uses Jinja2 variable
+SELECT '{{ sql_schema }}' AS sqlplus_var; -- Uses DEFINE variable
+```
+
+**Configuration:**
+```toml
+[jinja2]
+enabled = true
+variables_file = "vars.json"  # Contains: {"schema": "jinja_value"}
+
+[jinja2.extensions.sqlplus]
+process_defines = true
+```
+
+**Result:**
+- `{{ schema }}` → `"jinja_value"`
+- `{{ sql_schema }}` → `"sqlplus_value"`
+
+### Best Practices for Variables
+
+1. **Use descriptive names** to avoid conflicts
+2. **Leverage the sql_ prefix** to access DEFINE variables in Jinja2
+3. **Plan your variable strategy** early in the project
+4. **Monitor warnings** for potential conflicts
 
 ## Migration from v1.x
 

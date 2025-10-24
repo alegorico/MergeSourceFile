@@ -14,6 +14,7 @@ This document provides practical examples for common MergeSourceFile use cases. 
 8. [Template Reuse with Macros](#8-template-reuse-with-macros)
 9. [Include System Management](#9-include-system-management)
 10. [Legacy SQLPlus to Jinja2 Migration](#10-legacy-sqlplus-to-jinja2-migration)
+11. [Variable Namespace Separation](#11-variable-namespace-separation)
 
 ---
 
@@ -64,7 +65,7 @@ vars_file = "variables.json"
 ### Run
 
 ```bash
-mergesourcefile
+msf
 ```
 
 ### Output (output.sql)
@@ -893,7 +894,7 @@ Change `vars_file` in `MKFSource.toml` for each deployment.
 ### 3. Validate Generated SQL
 
 ```bash
-mergesourcefile
+msf
 sqlplus user/pass @output.sql
 ```
 
@@ -1272,6 +1273,179 @@ process_includes = true
 - [Architecture Documentation](ARCHITECTURE.md) - System design
 - [API Documentation](API_DOCUMENTATION.md) - Python API
 - [Jinja2 Documentation](https://jinja.palletsprojects.com/) - Template syntax
+
+---
+
+## 11. Variable Namespace Separation
+
+**Use Case**: Managing variable conflicts between SQLPlus DEFINE and Jinja2 variables with automatic namespace separation.
+
+**Problem**: When migrating SQLPlus scripts, DEFINE variables may conflict with Jinja2 variable names. MergeSourceFile provides automatic namespace separation with the `sql_` prefix.
+
+### Files
+
+**main.sql**:
+```sql
+-- SQLPlus variables (processed first)
+DEFINE env=production
+DEFINE schema=prod_schema
+DEFINE version=v2.0
+
+-- Database connection using original SQLPlus syntax
+CONNECT &env._user/&password@&env._db
+
+-- Mixed usage: SQLPlus and Jinja2 variables
+CREATE TABLE &schema..{{ table_name }} (
+    id NUMBER PRIMARY KEY,
+    name VARCHAR2(100),
+    environment VARCHAR2(50) DEFAULT '&env',
+    app_version VARCHAR2(20) DEFAULT '{{ sql_version }}',
+    deployment_time DATE DEFAULT SYSDATE,
+    feature_flags VARCHAR2(4000) DEFAULT '{{ features | tojson }}'
+);
+
+-- Pure SQLPlus processing (backwards compatible)
+INSERT INTO &schema..audit_log (
+    table_name, 
+    operation, 
+    environment
+) VALUES (
+    '{{ table_name }}',
+    'CREATE',
+    '&env'
+);
+
+-- Jinja2 variables with namespace separation
+INSERT INTO {{ sql_schema }}.config_table (
+    config_key,
+    config_value,
+    source_system
+) VALUES (
+    'database.environment',
+    '{{ sql_env }}',  -- From DEFINE via namespace
+    'SQLPlus'
+);
+
+-- Access both systems
+SELECT 
+    '{{ environment }}' AS jinja_env,           -- From variables.json
+    '{{ sql_env }}' AS sqlplus_env,             -- From DEFINE env
+    '{{ schema_name }}' AS jinja_schema,        -- From variables.json  
+    '{{ sql_schema }}' AS sqlplus_schema        -- From DEFINE schema
+FROM dual;
+
+-- Conditional logic using both systems
+{% if environment == 'production' and sql_env == 'production' %}
+    -- Both systems agree it's production
+    ALTER TABLE {{ sql_schema }}.{{ table_name }} ENABLE ROW MOVEMENT;
+{% endif %}
+```
+
+**variables.json**:
+```json
+{
+  "table_name": "users",
+  "environment": "production",
+  "schema_name": "app_schema",
+  "features": {
+    "audit": true,
+    "encryption": false,
+    "logging": true
+  }
+}
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "generated_schema.sql"
+verbose = true
+
+[jinja2]
+enabled = true
+variables_file = "variables.json"
+
+[jinja2.extensions]
+sqlplus = true
+
+[jinja2.extensions.sqlplus]
+process_includes = false    # Use Jinja2 includes if needed
+process_defines = true      # Extract DEFINE variables to Jinja2
+```
+
+### Expected Output
+
+**generated_schema.sql**:
+```sql
+-- Database connection using original SQLPlus syntax
+CONNECT production_user/password@production_db
+
+-- Mixed usage: SQLPlus and Jinja2 variables
+CREATE TABLE prod_schema.users (
+    id NUMBER PRIMARY KEY,
+    name VARCHAR2(100),
+    environment VARCHAR2(50) DEFAULT 'production',
+    app_version VARCHAR2(20) DEFAULT 'v2.0',
+    deployment_time DATE DEFAULT SYSDATE,
+    feature_flags VARCHAR2(4000) DEFAULT '{"audit": true, "encryption": false, "logging": true}'
+);
+
+-- Pure SQLPlus processing (backwards compatible)
+INSERT INTO prod_schema.audit_log (
+    table_name, 
+    operation, 
+    environment
+) VALUES (
+    'users',
+    'CREATE',
+    'production'
+);
+
+-- Jinja2 variables with namespace separation
+INSERT INTO prod_schema.config_table (
+    config_key,
+    config_value,
+    source_system
+) VALUES (
+    'database.environment',
+    'production',
+    'SQLPlus'
+);
+
+-- Access both systems
+SELECT 
+    'production' AS jinja_env,                  -- From variables.json
+    'production' AS sqlplus_env,                -- From DEFINE env via sql_ prefix
+    'app_schema' AS jinja_schema,               -- From variables.json  
+    'prod_schema' AS sqlplus_schema             -- From DEFINE schema via sql_ prefix
+FROM dual;
+
+-- Conditional logic using both systems
+    -- Both systems agree it's production
+    ALTER TABLE prod_schema.users ENABLE ROW MOVEMENT;
+```
+
+### Key Benefits
+
+1. **🏷️ Automatic Namespace**: DEFINE variables available as `{{ sql_variablename }}`
+2. **⚠️ Conflict Warnings**: Get warned when variable names overlap
+3. **🔄 Backward Compatibility**: Original SQLPlus syntax still works
+4. **🎯 Selective Access**: Choose between Jinja2 or SQLPlus variables per use case
+
+### Conflict Warning Example
+
+If `variables.json` contains `"env": "staging"` and you have `DEFINE env=production`, you'll see:
+
+```
+WARNING: CONFLICTO DE VARIABLES: La variable 'env' está definida tanto en 
+SQLPlus como en Jinja2. Usando namespace forzado: SQLPlus 'env' → Jinja2 '{{ sql_env }}'
+```
+
+This ensures:
+- `{{ env }}` → `"staging"` (from variables.json)
+- `{{ sql_env }}` → `"production"` (from DEFINE)
+- `&env` → `"production"` (original SQLPlus)
 
 ---
 

@@ -19,10 +19,7 @@ __version__ = "2.0.0"
 __author__ = "Alejandro G."
 __license__ = "MIT"
 
-from .main import main
-
-# Core - API Principal
-from .config_loader import load_config
+from .core import main, load_config
 from .template_engine import TemplateEngine
 
 __all__ = [

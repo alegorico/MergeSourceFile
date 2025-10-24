@@ -3,7 +3,7 @@ Tests para config_loader - Carga y normalización de configuración.
 """
 import pytest
 from pathlib import Path
-from MergeSourceFile.config_loader import load_config
+from MergeSourceFile.core import load_config
 
 
 class TestConfigLoaderBasics:
@@ -101,7 +101,7 @@ output = "out.sql"
 """, encoding='utf-8')
 
         # Debe lanzar ValueError porque falta input
-        with pytest.raises(ValueError, match="input.*requerido"):
+        with pytest.raises(ValueError, match="falta parámetro 'input'"):
             load_config(str(config_file))
 
     def test_output_empty_string_is_rejected(self, temp_dir):
@@ -114,7 +114,7 @@ output = ""
 """, encoding='utf-8')
 
         # Debe fallar la validación porque output está vacío
-        with pytest.raises(ValueError, match="output.*requerido"):
+        with pytest.raises(ValueError, match="falta parámetro 'output'"):
             load_config(str(config_file))
 
     def test_jinja2_enabled_without_vars_file_allowed(self, temp_dir):
@@ -160,7 +160,7 @@ class TestConfigEdgeCases:
         config_file.write_text("", encoding='utf-8')
 
         # Debe lanzar error porque falta input
-        with pytest.raises(ValueError, match="input.*requerido"):
+        with pytest.raises(ValueError, match="falta parámetro 'input'"):
             load_config(str(config_file))
 
     def test_config_with_comments(self, temp_dir):

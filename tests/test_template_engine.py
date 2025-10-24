@@ -24,7 +24,7 @@ class TestTemplateEngine:
         
         assert engine.config == config
         assert engine.jinja_config == {'enabled': True}
-        assert len(engine.extensions) == 0
+        assert len(engine.extension_manager.get_extension_names()) == 0
 
     def test_engine_loads_sqlplus_extension(self):
         """Test que el motor carga la extensión sqlplus cuando está configurada"""
@@ -40,11 +40,11 @@ class TestTemplateEngine:
         
         engine = TemplateEngine(config)
         
-        assert 'sqlplus' in engine.extensions
-        assert callable(engine.extensions['sqlplus'])
+        assert engine.extension_manager.has_extensions()
+        assert 'sqlplus' in engine.extension_manager.get_extension_names()
 
-    def test_engine_warns_on_unknown_extension(self, caplog):
-        """Test que el motor advierte sobre extensiones desconocidas"""
+    def test_engine_warns_on_unknown_extension(self):
+        """Test que el motor lanza error con extensiones desconocidas"""
         from MergeSourceFile.template_engine import TemplateEngine
         
         config = {
@@ -55,10 +55,8 @@ class TestTemplateEngine:
             }
         }
         
-        engine = TemplateEngine(config)
-        
-        assert 'unknown_extension' not in engine.extensions
-        assert any("no reconocida" in record.message for record in caplog.records)
+        with pytest.raises(ValueError, match="Extensión no registrada"):
+            TemplateEngine(config)
 
     def test_process_simple_template(self, temp_dir):
         """Test procesamiento de plantilla Jinja2 simple"""

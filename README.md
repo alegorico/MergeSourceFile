@@ -12,22 +12,23 @@
 [![TOML Config](https://img.shields.io/badge/Config-TOML-blue.svg)](https://toml.io/)
 [![Jinja2](https://img.shields.io/badge/Templates-Jinja2-red.svg)](https://jinja.palletsprojects.com/)
 
-**A Jinja2-centric SQL template processor with optional SQLPlus compatibility**
+**A streamlined Jinja2-centric SQL template processor with optional SQLPlus compatibility**
 
 Process SQL files with Jinja2 templates, optionally supporting Oracle SQLPlus file inclusions (`@`/`@@`) and variable substitutions (`DEFINE`/`UNDEFINE`).
 
 ## Overview
 
-MergeSourceFile v2.0.0 embraces **simplicity** with a **Jinja2-centric architecture**:
+MergeSourceFile v2.0.0 introduces a **simplified, unified architecture**:
 
-- **Core**: Jinja2 template engine (always active)
-- **Extensions**: Optional preprocessors (currently: SQLPlus compatibility)
-- **Configuration**: Simple TOML files
-- **Philosophy**: Function-based, not over-engineered
+- **🎯 Streamlined Core**: Just 2 main files (`core.py` + `template_engine.py`)
+- **⚡ Short Command**: Use `msf` instead of `mergesourcefile` 
+- **🧩 Extension Registry**: Centralized extension management
+- **🔧 Jinja2-Centric**: Template engine at the core with optional extensions
+- **📋 Simple Config**: Clean TOML configuration
 
 ## Description
 
-MergeSourceFile is a powerful SQL script processor with a **plugin-based architecture** that provides flexible, configurable processing pipelines. The tool processes SQL*Plus scripts with support for file inclusions (`@`, `@@`), variable substitutions (`DEFINE`/`UNDEFINE`), and Jinja2 templating with custom filters and processing strategies.
+MergeSourceFile is a powerful, streamlined SQL script processor with a **unified architecture** that provides flexible template processing. The tool processes SQL*Plus scripts with support for file inclusions (`@`, `@@`), variable substitutions (`DEFINE`/`UNDEFINE`), and Jinja2 templating with custom filters and extensions.
 
 ## Features
 
@@ -40,7 +41,10 @@ MergeSourceFile is a powerful SQL script processor with a **plugin-based archite
 - **🛡️ Custom Jinja2 Filters**: `sql_escape` for SQL injection protection and `strftime` for date formatting
 - **⚠️ Smart Conflict Resolution**: Automatic exclusion between SQLPlus and Jinja2 include systems
 - **🔀 Dual Include Support**: Choose between `@file` (SQLPlus) or `{% include %}` (Jinja2) - never both
-- **🌳 Tree Display**: Shows the inclusion hierarchy in a tree structure
+- **�️ Variable Namespace Separation**: Forced `sql_` prefix for DEFINE variables in Jinja2 context
+- **⚡ Conflict Detection**: Automatic warnings for variable name conflicts between systems
+- **🔄 Variable Extraction**: DEFINE variables automatically available in Jinja2 templates
+- **�🌳 Tree Display**: Shows the inclusion hierarchy in a tree structure
 - **📊 Verbose Mode**: Detailed logging for debugging and understanding the processing flow
 
 Perfect for:
@@ -104,7 +108,8 @@ variables_file = "variables.json"
 **Run the processor**:
 
 ```bash
-mergesourcefile
+msf
+# or use the full command: mergesourcefile
 ```
 
 ### 2. With SQLPlus Extension
@@ -209,40 +214,50 @@ enabled = true
 
 ## Architecture
 
-MergeSourceFile v2.0.0 introduces a plugin-based architecture with three core plugins:
+MergeSourceFile v2.0.0 features a **streamlined unified architecture**:
 
-1. **SQLPlus Include Plugin**: Resolves `@` and `@@` file inclusions
-2. **SQLPlus Variable Plugin**: Processes `DEFINE` and `UNDEFINE` commands  
-3. **Jinja2 Plugin**: Processes Jinja2 templates with variables and logic
+### Core Components
+
+1. **`core.py`**: Configuration loading, logging setup, and main orchestration
+2. **`template_engine.py`**: Jinja2 engine + Extension registry + Extension manager
+
+### Extension System
+
+- **Extension Registry**: Centralized registration of all available extensions
+- **Extension Manager**: Handles loading, execution order, and namespace management
+- **SQLPlus Extension**: File inclusions (`@`/`@@`) and variable processing (`DEFINE`/`UNDEFINE`)
 
 ## Command-Line Interface
 
 ```bash
-# Basic usage (uses MKFSource.toml in current directory)
+# Basic usage with short command
+msf
+
+# Or use the full command name
 mergesourcefile
 
-# With verbose output
-mergesourcefile --verbose
-
-# Display processing tree
-mergesourcefile --tree
+# Both commands support the same options
+msf --help
 ```
 
 ## Python API
 
 ```python
-from MergeSourceFile import process_template
+from MergeSourceFile import TemplateEngine, load_config
 
-# Basic usage
-result = process_template(
-    input_file="template.sql",
-    output_file="output.sql",
-    variables={"schema": "APP", "env": "prod"}
-)
+# Using configuration file
+config = load_config('MKFSource.toml')
+engine = TemplateEngine(config)
+result = engine.process_file('template.sql', variables={"schema": "APP", "env": "prod"})
 
-# With extensions
-result = process_template(
-    input_file="main.sql",
+# Direct usage without config file
+engine = TemplateEngine({
+    'jinja2': {
+        'enabled': True,
+        'extensions': ['sqlplus']
+    }
+})
+result = engine.process_file('main.sql',
     output_file="result.sql",
     variables={"version": "2.0.0"},
     extensions={"sqlplus": True}

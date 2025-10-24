@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.1] - 2025-10-24
 
-### 🎯 Include System Conflict Resolution
+### 🎯 Conflict Resolution: Include Systems & Variable Namespaces
 
-This version addresses the critical issue of **duplicate include systems** that caused confusion and potential conflicts between SQLPlus and Jinja2 inclusion mechanisms.
+This version addresses **critical conflicts** between SQLPlus and Jinja2 systems, implementing comprehensive resolution mechanisms for both includes and variables.
 
 ### Added
 
@@ -19,15 +19,24 @@ This version addresses the critical issue of **duplicate include systems** that 
   - When `process_includes = false`: SQLPlus includes ❌ disabled, Jinja2 includes ✅ active
   - Custom `NoIncludeLoader` class that blocks Jinja2 includes when SQLPlus handles them
 
+- **🏷️ Variable Namespace Separation System**
+  - **Forced namespace separation** for DEFINE variables with `sql_` prefix
+  - SQLPlus `DEFINE var=value` → Jinja2 `{{ sql_var }}`
+  - Automatic extraction of DEFINE variables to Jinja2 context
+  - **Warning system** for variable name conflicts between SQLPlus and Jinja2
+  - Non-configurable namespace to ensure consistency across projects
+
 - **🔧 Enhanced Template Engine**
   - Modified `TemplateEngine._render_template()` to automatically select appropriate loader
   - Added `FileSystemLoader` support for proper Jinja2 include resolution
   - Intelligent loader selection based on extension configuration
   - Clear error messages when using wrong include system
+  - Enhanced `process_sqlplus()` function with integrated variable extraction
 
 - **📋 Comprehensive Testing**
-  - New test suite: `tests/test_include_conflict.py`
-  - 4 dedicated tests for include system behavior validation
+  - New test suite: `tests/test_include_conflict.py` (4 tests)
+  - New test suite: `tests/test_variable_namespace.py` (5 tests)
+  - Complete coverage of conflict resolution scenarios
   - Tests verify exclusion logic works correctly in all scenarios
   - Validates error messages are clear and helpful
 

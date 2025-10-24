@@ -50,7 +50,8 @@ Repository = "https://github.com/alegorico/MergeSourceFile"
 Issues = "https://github.com/alegorico/MergeSourceFile/issues"
 
 [project.scripts]
-mergesourcefile = "MergeSourceFile.main:main"
+msf = "MergeSourceFile.core:main"
+mergesourcefile = "MergeSourceFile.core:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
