@@ -38,7 +38,8 @@ MergeSourceFile is a powerful SQL script processor with a **plugin-based archite
 - **🔄 Variable Redefinition**: Supports redefining variables throughout the script
 - **🎨 Jinja2 Template Processing**: Full Jinja2 template support with variables, conditionals, loops, and filters
 - **🛡️ Custom Jinja2 Filters**: `sql_escape` for SQL injection protection and `strftime` for date formatting
-- **⚙️ Flexible Processing Orders**: Customize plugin execution order for different workflows
+- **⚠️ Smart Conflict Resolution**: Automatic exclusion between SQLPlus and Jinja2 include systems
+- **🔀 Dual Include Support**: Choose between `@file` (SQLPlus) or `{% include %}` (Jinja2) - never both
 - **🌳 Tree Display**: Shows the inclusion hierarchy in a tree structure
 - **📊 Verbose Mode**: Detailed logging for debugging and understanding the processing flow
 
@@ -121,9 +122,35 @@ enabled = true
 [jinja2.extensions]
 sqlplus = true
 
-[jinja2.extensions.sqlplus]
-resolve_includes = true
-resolve_variables = true
+[jinja2.sqlplus]
+process_includes = true   # SQLPlus @file includes (disables Jinja2 {% include %})
+process_defines = true    # DEFINE/UNDEFINE variables
+```
+
+### ⚠️ Important: Include System Behavior
+
+MergeSourceFile prevents conflicts between include systems:
+
+- **SQLPlus includes active** (`process_includes = true`) → `{% include %}` **disabled**
+- **SQLPlus includes inactive** → `{% include %}` **enabled** 
+
+Choose the approach that fits your project:
+
+#### Option A: Modern Jinja2 (Recommended)
+```toml
+[jinja2]
+enabled = true
+# No SQLPlus extension = {% include %} works
+```
+
+#### Option B: Legacy SQLPlus Support  
+```toml
+[jinja2]
+enabled = true
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = true   # @file works, {% include %} disabled
 ```
 
 ## Configuration

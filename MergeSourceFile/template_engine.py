@@ -29,9 +29,23 @@ Jinja2 es el núcleo, las extensiones modifican el input antes de procesar.
 import logging
 from pathlib import Path
 from typing import Dict, Any, Callable
-from jinja2 import Environment, BaseLoader, StrictUndefined, TemplateError
+from jinja2 import Environment, BaseLoader, FileSystemLoader, StrictUndefined, TemplateError
 
 logger = logging.getLogger(__name__)
+
+
+class NoIncludeLoader(BaseLoader):
+    """
+    Loader personalizado que deshabilita includes de Jinja2.
+    
+    Lanza error si se intenta usar {% include %} cuando SQLPlus includes está activo.
+    """
+    
+    def get_source(self, environment, template):
+        raise TemplateError(
+            "Los includes de Jinja2 están deshabilitados porque la extensión SQLPlus "
+            "está manejando las inclusiones. Use '@archivo' en lugar de '{% include \"archivo\" %}'"
+        )
 
 
 class TemplateEngine:
@@ -106,18 +120,19 @@ class TemplateEngine:
         
         # 3. Aplicar Jinja2 (procesamiento principal)
         logger.info("Procesando plantilla Jinja2")
-        rendered_content = self._render_template(content, variables)
+        rendered_content = self._render_template(content, variables, str(input_path.parent))
         
         logger.info(f"Procesamiento completado ({len(rendered_content)} caracteres)")
         return rendered_content
     
-    def _render_template(self, template_content: str, variables: Dict[str, Any]) -> str:
+    def _render_template(self, template_content: str, variables: Dict[str, Any], template_dir: str = None) -> str:
         """
         Renderiza contenido con Jinja2.
         
         Args:
             template_content: Contenido de la plantilla
             variables: Variables disponibles
+            template_dir: Directorio base para resolver includes
         
         Returns:
             Contenido renderizado
@@ -127,8 +142,24 @@ class TemplateEngine:
             env_kwargs = {
                 'variable_start_string': self.jinja_config.get('variable_start_string', '{{'),
                 'variable_end_string': self.jinja_config.get('variable_end_string', '}}'),
-                'loader': BaseLoader()
             }
+            
+            # Decidir qué loader usar basado en si SQLPlus includes está activo
+            sqlplus_active = 'sqlplus' in self.extensions
+            sqlplus_includes_active = False
+            
+            if sqlplus_active:
+                sqlplus_config = self.jinja_config.get('sqlplus', {})
+                sqlplus_includes_active = sqlplus_config.get('process_includes', True)
+            
+            if sqlplus_includes_active:
+                # Si SQLPlus maneja includes, usar loader que los deshabilita
+                env_kwargs['loader'] = NoIncludeLoader()
+                logger.info("Includes de Jinja2 deshabilitados (SQLPlus includes activo)")
+            else:
+                # Usar FileSystemLoader para permitir includes de Jinja2
+                template_dir_path = template_dir if template_dir else str(Path.cwd())
+                env_kwargs['loader'] = FileSystemLoader(str(template_dir_path))
             
             if self.jinja_config.get('strict_undefined', True):
                 env_kwargs['undefined'] = StrictUndefined

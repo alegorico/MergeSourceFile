@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-10-24
+
+### 🎯 Include System Conflict Resolution
+
+This version addresses the critical issue of **duplicate include systems** that caused confusion and potential conflicts between SQLPlus and Jinja2 inclusion mechanisms.
+
+### Added
+
+- **🚦 Automatic Include System Exclusion**
+  - Implemented smart conflict resolution between `@file` (SQLPlus) and `{% include %}` (Jinja2)
+  - When `process_includes = true`: SQLPlus includes ✅ active, Jinja2 includes ❌ disabled
+  - When `process_includes = false`: SQLPlus includes ❌ disabled, Jinja2 includes ✅ active
+  - Custom `NoIncludeLoader` class that blocks Jinja2 includes when SQLPlus handles them
+
+- **🔧 Enhanced Template Engine**
+  - Modified `TemplateEngine._render_template()` to automatically select appropriate loader
+  - Added `FileSystemLoader` support for proper Jinja2 include resolution
+  - Intelligent loader selection based on extension configuration
+  - Clear error messages when using wrong include system
+
+- **📋 Comprehensive Testing**
+  - New test suite: `tests/test_include_conflict.py`
+  - 4 dedicated tests for include system behavior validation
+  - Tests verify exclusion logic works correctly in all scenarios
+  - Validates error messages are clear and helpful
+
+- **📚 Updated Documentation**
+  - Enhanced `CONFIGURATION.md` with include system behavior section
+  - Updated `README.md` with conflict resolution information
+  - New `EXAMPLES.md` sections for include system management and migration
+  - Added `INCLUDE_CONFLICT_RESOLUTION.md` technical guide
+
+### Changed
+
+- **🔄 Configuration Parameter Updates**
+  - `resolve_includes` renamed to `process_includes` (more accurate naming)
+  - `resolve_variables` renamed to `process_defines` (matches SQLPlus terminology)
+  - Updated all documentation and examples to reflect new parameter names
+
+### Fixed
+
+- **🐛 Include System Conflicts**
+  - Eliminated ambiguity between SQLPlus `@file` and Jinja2 `{% include %}` systems
+  - Prevented potential file processing conflicts and unexpected behavior
+  - Ensured only one include system is active at any time
+
+### Technical Details
+
+- Added `NoIncludeLoader` class that raises descriptive errors for blocked includes
+- Modified `_render_template()` method with loader selection logic
+- Updated import statements to include `FileSystemLoader`
+- Enhanced error messages with actionable guidance for users
+
+### Migration Guide
+
+**Old behavior**: Both include systems could potentially conflict
+**New behavior**: Automatic exclusion prevents conflicts
+
+No breaking changes to existing configurations - upgrade is seamless.
+
+---
+
 ## [2.0.0] - 2025-10-24
 
 ### 🎯 Major Architectural Redesign

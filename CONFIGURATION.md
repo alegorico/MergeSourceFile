@@ -4,6 +4,15 @@
 
 MergeSourceFile v2.0.0 uses a **Jinja2-centric architecture** with optional extensions. Configuration is stored in `MKFSource.toml` using the TOML format. The tool reads from a file named `MKFSource.toml` located in the current directory.
 
+### ⚠️ Important: Include System Conflict Resolution
+
+MergeSourceFile implements **automatic conflict resolution** between include systems:
+
+- **SQLPlus includes active** (`process_includes = true`) → Jinja2 `{% include %}` **DISABLED**
+- **SQLPlus includes inactive** → Jinja2 `{% include %}` **ENABLED**
+
+This prevents conflicts between `@file.sql` (SQLPlus) and `{% include "file.sql" %}` (Jinja2) systems.
+
 ## Configuration Requirements
 
 ### Legend
@@ -144,19 +153,25 @@ SQLPlus extension configuration. Only required if `sqlplus = true`.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `resolve_includes` | boolean | 🟢 No | `true` | Process `@` and `@@` file inclusions |
-| `resolve_variables` | boolean | 🟢 No | `true` | Process `DEFINE` and `UNDEFINE` commands |
-| `include_paths` | array | 🟢 No | `["."]` | Search paths for included files |
-| `max_depth` | integer | 🟢 No | `10` | Maximum inclusion depth |
+| `process_includes` | boolean | 🟢 No | `true` | Process `@` and `@@` file inclusions |
+| `process_defines` | boolean | 🟢 No | `true` | Process `DEFINE` and `UNDEFINE` commands |
+
+#### ⚠️ Include System Behavior
+
+When `process_includes = true`:
+- ✅ SQLPlus includes (`@file`, `@@file`) work normally
+- ❌ Jinja2 includes (`{% include "file" %}`) are **DISABLED** to prevent conflicts
+
+When `process_includes = false`:
+- ❌ SQLPlus includes are ignored
+- ✅ Jinja2 includes work normally
 
 #### Example
 
 ```toml
 [jinja2.extensions.sqlplus]
-resolve_includes = true
-resolve_variables = true
-include_paths = [".", "includes/", "common/"]
-max_depth = 5
+process_includes = true    # SQLPlus includes active, Jinja2 includes disabled
+process_defines = true     # Process DEFINE/UNDEFINE variables
 ```
 
 ## Complete Configuration Examples
@@ -190,10 +205,8 @@ enabled = true
 sqlplus = true
 
 [jinja2.extensions.sqlplus]
-resolve_includes = true
-resolve_variables = true
-include_paths = [".", "sql/includes/", "sql/common/"]
-max_depth = 8
+process_includes = true    # SQLPlus includes enabled, Jinja2 includes disabled
+process_defines = true     # Process DEFINE/UNDEFINE variables
 ```
 
 ### Example 3: Advanced Template Processing
@@ -217,9 +230,8 @@ strict_undefined = true
 sqlplus = true
 
 [jinja2.extensions.sqlplus]
-resolve_includes = true
-resolve_variables = false
-include_paths = ["templates/", "schemas/"]
+process_includes = false   # SQLPlus includes disabled, Jinja2 includes enabled
+process_defines = false    # Only Jinja2 variables
 ```
 
 ## Variables File Format
@@ -246,6 +258,110 @@ When using `variables_file`, create a JSON file with your template variables:
   ]
 }
 ```
+
+## Include System Management
+
+### Understanding Include Systems
+
+MergeSourceFile supports two include systems that serve different purposes:
+
+1. **SQLPlus includes** (`@file`, `@@file`): Physical file expansion (legacy compatibility)
+2. **Jinja2 includes** (`{% include "file" %}`): Template-based inclusion (modern approach)
+
+### Conflict Resolution
+
+To prevent ambiguity and conflicts, MergeSourceFile implements **automatic exclusion** between systems:
+
+| Configuration | SQLPlus Includes | Jinja2 Includes | Use Case |
+|---------------|------------------|-----------------|----------|
+| No extensions | ❌ Disabled | ✅ **Active** | Modern Jinja2 only |
+| `process_includes = true` | ✅ **Active** | ❌ Disabled | Legacy SQLPlus compatibility |
+| `process_includes = false` | ❌ Disabled | ✅ **Active** | Jinja2 with SQLPlus variables only |
+
+### Configuration Examples
+
+#### Pure Jinja2 (Recommended for new projects)
+```toml
+[project]
+input = "template.sql"
+output = "output.sql"
+
+[jinja2]
+enabled = true
+# No SQLPlus extension = Jinja2 includes work normally
+```
+
+**Template usage:**
+```sql
+{% include "config/database.sql" %}
+{% include "functions/utilities.sql" %}
+
+SELECT * FROM {{ schema }}.{{ table }};
+```
+
+#### Legacy SQLPlus Support
+```toml
+[project]
+input = "legacy.sql"
+output = "output.sql"
+
+[jinja2]
+enabled = true
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = true    # Enables @file, disables {% include %}
+process_defines = true     # Enables DEFINE variables
+```
+
+**Template usage:**
+```sql
+@config/database.sql
+@@functions/utilities.sql
+
+SELECT * FROM {{ schema }}.{{ table }};
+```
+
+#### Hybrid Approach (Variables only)
+```toml
+[project]
+input = "hybrid.sql"
+output = "output.sql"
+
+[jinja2]
+enabled = true
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = false   # Disables @file, enables {% include %}
+process_defines = true     # Keeps DEFINE variables for migration
+```
+
+**Template usage:**
+```sql
+DEFINE schema=production_schema
+
+{% include "config/database.sql" %}
+
+SELECT * FROM &schema.{{ table }};
+```
+
+### Error Messages
+
+If you use the wrong include system, you'll get clear error messages:
+
+**Using `{% include %}` when SQLPlus includes are active:**
+```
+Error: Los includes de Jinja2 están deshabilitados porque la extensión 
+SQLPlus está manejando las inclusiones. Use '@archivo' en lugar de 
+'{% include "archivo" %}'
+```
+
+### Migration Strategy
+
+1. **New projects**: Use pure Jinja2 includes
+2. **Legacy migration**: Start with SQLPlus includes, gradually convert to Jinja2
+3. **Hybrid approach**: Use SQLPlus variables with Jinja2 includes during transition
 
 ## Migration from v1.x
 

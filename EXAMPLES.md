@@ -12,6 +12,8 @@ This document provides practical examples for common MergeSourceFile use cases. 
 6. [Database Migration Scripts](#6-database-migration-scripts)
 7. [Conditional Feature Deployment](#7-conditional-feature-deployment)
 8. [Template Reuse with Macros](#8-template-reuse-with-macros)
+9. [Include System Management](#9-include-system-management)
+10. [Legacy SQLPlus to Jinja2 Migration](#10-legacy-sqlplus-to-jinja2-migration)
 
 ---
 
@@ -963,9 +965,310 @@ GRANT {{ user.role }} TO {{ user.username }};
 
 ---
 
+## 9. Include System Management
+
+**Use Case**: Understanding and choosing between SQLPlus and Jinja2 include systems.
+
+### 9.1 Modern Jinja2 Includes (Recommended)
+
+**Files Structure**:
+```
+project/
+├── main.sql
+├── includes/
+│   ├── config.sql
+│   └── functions.sql
+├── variables.json
+└── MKFSource.toml
+```
+
+**main.sql**:
+```sql
+-- Main deployment script
+{% include "includes/config.sql" %}
+{% include "includes/functions.sql" %}
+
+CREATE TABLE {{ schema }}.users (
+    id NUMBER PRIMARY KEY,
+    username VARCHAR2({{ username_length }})
+);
+```
+
+**includes/config.sql**:
+```sql
+-- Configuration settings
+{% if environment == "production" %}
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+{% else %}
+ALTER SESSION SET SQL_TRACE = TRUE;
+{% endif %}
+```
+
+**includes/functions.sql**:
+```sql
+-- Utility functions
+CREATE OR REPLACE FUNCTION get_next_id RETURN NUMBER IS
+BEGIN
+    RETURN {{ schema }}_seq.NEXTVAL;
+END;
+/
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "deployment.sql"
+
+[jinja2]
+enabled = true
+variables_file = "variables.json"
+# No SQLPlus extension = Jinja2 includes work
+```
+
+### 9.2 Legacy SQLPlus Includes Support
+
+**main.sql**:
+```sql
+-- Legacy SQLPlus script
+@includes/config.sql
+@includes/functions.sql
+
+CREATE TABLE {{ schema }}.users (
+    id NUMBER PRIMARY KEY,
+    username VARCHAR2({{ username_length }})
+);
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "deployment.sql"
+
+[jinja2]
+enabled = true
+variables_file = "variables.json"
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = true   # Enables @file, disables {% include %}
+process_defines = true
+```
+
+### 9.3 Hybrid Approach (Variables Only)
+
+**main.sql**:
+```sql
+-- Hybrid: SQLPlus variables + Jinja2 includes
+DEFINE app_schema={{ schema }}
+
+{% include "includes/config.sql" %}
+
+CREATE TABLE &app_schema.users (
+    id NUMBER PRIMARY KEY,
+    username VARCHAR2({{ username_length }})
+);
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "main.sql"
+output = "deployment.sql"
+
+[jinja2]
+enabled = true
+variables_file = "variables.json"
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = false  # Disables @file, enables {% include %}
+process_defines = true    # Keeps DEFINE variables
+```
+
+---
+
+## 10. Legacy SQLPlus to Jinja2 Migration
+
+**Use Case**: Step-by-step migration from SQLPlus to modern Jinja2.
+
+### Step 1: Original SQLPlus Script
+
+**legacy_main.sql**:
+```sql
+@config/database_settings.sql
+@@common/functions.sql
+
+DEFINE app_name=MyApp
+DEFINE version=1.0
+
+CREATE TABLE &app_schema..users (
+    id NUMBER PRIMARY KEY,
+    app_name VARCHAR2(50) DEFAULT '&app_name',
+    version VARCHAR2(10) DEFAULT '&version'
+);
+
+@cleanup/finalize.sql
+```
+
+### Step 2: Initial Migration (Keep SQLPlus)
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "legacy_main.sql"
+output = "migrated.sql"
+verbose = true
+
+[jinja2]
+enabled = true
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = true   # Keep @file includes
+process_defines = true    # Keep DEFINE variables
+```
+
+### Step 3: Gradual Jinja2 Introduction
+
+**hybrid_main.sql**:
+```sql
+@config/database_settings.sql
+@@common/functions.sql
+
+-- Start using Jinja2 variables
+CREATE TABLE {{ app_schema }}.users (
+    id NUMBER PRIMARY KEY,
+    app_name VARCHAR2(50) DEFAULT '{{ app_name }}',
+    version VARCHAR2(10) DEFAULT '{{ version }}',
+    environment VARCHAR2(20) DEFAULT '{{ environment }}'
+);
+
+@cleanup/finalize.sql
+```
+
+**variables.json**:
+```json
+{
+  "app_schema": "MYAPP_PROD",
+  "app_name": "MyApp",
+  "version": "2.0",
+  "environment": "production"
+}
+```
+
+### Step 4: Convert Includes to Jinja2
+
+**modern_main.sql**:
+```sql
+{% include "config/database_settings.sql" %}
+{% include "common/functions.sql" %}
+
+CREATE TABLE {{ app_schema }}.users (
+    id NUMBER PRIMARY KEY,
+    app_name VARCHAR2(50) DEFAULT '{{ app_name }}',
+    version VARCHAR2(10) DEFAULT '{{ version }}',
+    {% if environment == "production" %}
+    created_date DATE DEFAULT SYSDATE,
+    {% else %}
+    created_date DATE DEFAULT SYSDATE,
+    debug_info VARCHAR2(100) DEFAULT 'DEBUG_MODE',
+    {% endif %}
+    environment VARCHAR2(20) DEFAULT '{{ environment }}'
+);
+
+{% include "cleanup/finalize.sql" %}
+```
+
+**MKFSource.toml**:
+```toml
+[project]
+input = "modern_main.sql"
+output = "final.sql"
+
+[jinja2]
+enabled = true
+variables_file = "variables.json"
+# No SQLPlus extension = Pure Jinja2
+```
+
+### Step 5: Final Modern Template
+
+**final_main.sql**:
+```sql
+-- Modern Jinja2-only template
+{% include "config/database_settings.sql" %}
+{% include "common/functions.sql" %}
+
+{% for table in tables %}
+CREATE TABLE {{ app_schema }}.{{ table.name }} (
+    id NUMBER PRIMARY KEY,
+    {% for column in table.columns %}
+    {{ column.name }} {{ column.type }}{{ "," if not loop.last else "" }}
+    {% endfor %}
+);
+
+{% if environment == "production" %}
+GRANT SELECT ON {{ app_schema }}.{{ table.name }} TO app_read_role;
+{% endif %}
+{% endfor %}
+
+{% include "cleanup/finalize.sql" %}
+```
+
+### Migration Benefits
+
+1. **Gradual transition**: No big bang migration
+2. **Risk reduction**: Test each step independently  
+3. **Team adaptation**: Learn Jinja2 incrementally
+4. **Rollback capability**: Can return to previous steps
+5. **Modern features**: Unlock loops, conditionals, etc.
+
+---
+
+## Error Handling Examples
+
+### Include System Conflicts
+
+**Wrong usage** (will fail):
+```sql
+-- This will FAIL if SQLPlus includes are active
+{% include "config.sql" %}
+```
+
+**Error message**:
+```
+Error: Los includes de Jinja2 están deshabilitados porque la extensión 
+SQLPlus está manejando las inclusiones. Use '@archivo' en lugar de 
+'{% include "archivo" %}'
+```
+
+**Correct configurations**:
+
+**For Jinja2 includes**:
+```toml
+[jinja2]
+enabled = true
+# No SQLPlus extension
+```
+
+**For SQLPlus includes**:
+```toml
+[jinja2]
+enabled = true
+extensions = ["sqlplus"]
+
+[jinja2.sqlplus]
+process_includes = true
+```
+
+---
+
 ## References
 
 - [Configuration Guide](CONFIGURATION.md) - Complete TOML reference
+- [Include Conflict Resolution](INCLUDE_CONFLICT_RESOLUTION.md) - Detailed technical guide
 - [Architecture Documentation](ARCHITECTURE.md) - System design
 - [API Documentation](API_DOCUMENTATION.md) - Python API
 - [Jinja2 Documentation](https://jinja.palletsprojects.com/) - Template syntax
