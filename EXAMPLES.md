@@ -41,14 +41,12 @@ CREATE TABLE {{ schema }}.users (
 COMMENT ON TABLE {{ schema }}.users IS 'User accounts for {{ app_name }}';
 ```
 
-**variables.json**:
-```json
-{
-  "app_name": "MyApplication",
-  "version": "2.0.0",
-  "environment": "production",
-  "schema": "APP_SCHEMA"
-}
+**variables.yaml**:
+```yaml
+app_name: MyApplication
+version: 2.0.0
+environment: production
+schema: APP_SCHEMA
 ```
 
 **MKFSource.toml**:
@@ -59,7 +57,7 @@ output_file = "output.sql"
 
 [jinja2]
 enabled = true
-vars_file = "variables.json"
+variables_file = "variables.yaml"
 ```
 
 ### Run
@@ -137,28 +135,24 @@ GRANT ALL ON {{ schema }}.* TO developers;
 {% endif %}
 ```
 
-**prod.json**:
-```json
-{
-  "env": "production",
-  "tablespace_name": "PROD_DATA",
-  "datafile_path": "/oradata/prod/data01.dbf",
-  "datafile_size": "50G",
-  "schema": "PROD_SCHEMA",
-  "now": "2025-10-24 10:30:00"
-}
+**prod.yaml**:
+```yaml
+env: production
+tablespace_name: PROD_DATA
+datafile_path: /oradata/prod/data01.dbf
+datafile_size: 50G
+schema: PROD_SCHEMA
+now: "2025-10-24 10:30:00"
 ```
 
-**dev.json**:
-```json
-{
-  "env": "development",
-  "tablespace_name": "DEV_DATA",
-  "datafile_path": "/oradata/dev/data01.dbf",
-  "datafile_size": "5G",
-  "schema": "DEV_SCHEMA",
-  "now": "2025-10-24 10:30:00"
-}
+**dev.yaml**:
+```yaml
+env: development
+tablespace_name: DEV_DATA
+datafile_path: /oradata/dev/data01.dbf
+datafile_size: 5G
+schema: DEV_SCHEMA
+now: "2025-10-24 10:30:00"
 ```
 
 **MKFSource.toml**:
@@ -170,7 +164,7 @@ backup = true
 
 [jinja2]
 enabled = true
-vars_file = "prod.json"  # Change to dev.json for dev deployment
+variables_file = "prod.yaml"  # Change to dev.yaml for dev deployment
 ```
 
 ---
@@ -308,7 +302,7 @@ ALTER TABLE {{ table.name }}
 {% endfor %}
 ```
 
-**metadata.json**:
+**metadata.yaml**:
 ```json
 {
   "now": "2025-10-24",
@@ -421,7 +415,7 @@ output_file = "schema_generated.sql"
 
 [jinja2]
 enabled = true
-vars_file = "metadata.json"
+variables_file = "metadata.yaml"
 ```
 
 ---
@@ -436,7 +430,7 @@ vars_file = "metadata.json"
 project/
 ├── MKFSource.toml
 ├── main.sql
-├── variables.json
+├── variables.yaml
 ├── common/
 │   ├── header.sql
 │   └── footer.sql
@@ -517,7 +511,7 @@ CREATE TABLE {{ schema }}.logs (
 );
 ```
 
-**variables.json**:
+**variables.yaml**:
 ```json
 {
   "project_name": "MyApp",
@@ -539,7 +533,7 @@ verbose = true
 
 [jinja2]
 enabled = true
-vars_file = "variables.json"
+variables_file = "variables.yaml"
 
 [jinja2.extensions]
 sqlplus = true
@@ -615,7 +609,7 @@ UPDATE system_config SET version = '{{ to_version }}' WHERE key = 'schema_versio
 COMMIT;
 ```
 
-**migration_config.json**:
+**migration_config.yaml**:
 ```json
 {
   "migration_type": "upgrade",
@@ -657,7 +651,7 @@ output_file = "migration_upgrade.sql"
 
 [jinja2]
 enabled = true
-vars_file = "migration_config.json"
+variables_file = "migration_config.yaml"
 ```
 
 ---
@@ -738,7 +732,7 @@ CREATE TABLE api_keys (
 {% endfor %}
 ```
 
-**enterprise.json**:
+**enterprise.yaml**:
 ```json
 {
   "license_type": "Enterprise",
@@ -753,7 +747,7 @@ CREATE TABLE api_keys (
 }
 ```
 
-**basic.json**:
+**basic.yaml**:
 ```json
 {
   "license_type": "Basic",
@@ -776,7 +770,7 @@ output_file = "deployment.sql"
 
 [jinja2]
 enabled = true
-vars_file = "enterprise.json"  # Change to basic.json for basic license
+variables_file = "enterprise.yaml"  # Change to basic.yaml for basic license
 ```
 
 ---
@@ -831,7 +825,7 @@ END;
 {% endfor %}
 ```
 
-**tables.json**:
+**tables.yaml**:
 ```json
 {
   "tables": [
@@ -863,7 +857,7 @@ output_file = "generated.sql"
 
 [jinja2]
 enabled = true
-vars_file = "tables.json"
+variables_file = "tables.yaml"
 ```
 
 ---
@@ -874,13 +868,13 @@ vars_file = "tables.json"
 
 ```bash
 config/
-├── dev.json
-├── test.json
-├── staging.json
-└── prod.json
+├── dev.yaml
+├── test.yaml
+├── staging.yaml
+└── prod.yaml
 ```
 
-Change `vars_file` in `MKFSource.toml` for each deployment.
+Change `variables_file` in `MKFSource.toml` for each deployment.
 
 ### 2. Use Comments to Document Templates
 
@@ -901,7 +895,7 @@ sqlplus user/pass @output.sql
 ### 4. Version Control Your Configurations
 
 ```bash
-git add MKFSource.toml variables.json
+git add MKFSource.toml variables.yaml
 git commit -m "Update deployment configuration"
 ```
 
@@ -979,7 +973,7 @@ project/
 ├── includes/
 │   ├── config.sql
 │   └── functions.sql
-├── variables.json
+├── variables.yaml
 └── MKFSource.toml
 ```
 
@@ -1023,7 +1017,7 @@ output = "deployment.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 # No SQLPlus extension = Jinja2 includes work
 ```
 
@@ -1049,7 +1043,7 @@ output = "deployment.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 extensions = ["sqlplus"]
 
 [jinja2.sqlplus]
@@ -1080,7 +1074,7 @@ output = "deployment.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 extensions = ["sqlplus"]
 
 [jinja2.sqlplus]
@@ -1149,7 +1143,7 @@ CREATE TABLE {{ app_schema }}.users (
 @cleanup/finalize.sql
 ```
 
-**variables.json**:
+**variables.yaml**:
 ```json
 {
   "app_schema": "MYAPP_PROD",
@@ -1190,7 +1184,7 @@ output = "final.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 # No SQLPlus extension = Pure Jinja2
 ```
 
@@ -1328,9 +1322,9 @@ INSERT INTO {{ sql_schema }}.config_table (
 
 -- Access both systems
 SELECT 
-    '{{ environment }}' AS jinja_env,           -- From variables.json
+    '{{ environment }}' AS jinja_env,           -- From variables.yaml
     '{{ sql_env }}' AS sqlplus_env,             -- From DEFINE env
-    '{{ schema_name }}' AS jinja_schema,        -- From variables.json  
+    '{{ schema_name }}' AS jinja_schema,        -- From variables.yaml  
     '{{ sql_schema }}' AS sqlplus_schema        -- From DEFINE schema
 FROM dual;
 
@@ -1341,7 +1335,7 @@ FROM dual;
 {% endif %}
 ```
 
-**variables.json**:
+**variables.yaml**:
 ```json
 {
   "table_name": "users",
@@ -1364,7 +1358,7 @@ verbose = true
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 
 [jinja2.extensions]
 sqlplus = true
@@ -1415,9 +1409,9 @@ INSERT INTO prod_schema.config_table (
 
 -- Access both systems
 SELECT 
-    'production' AS jinja_env,                  -- From variables.json
+    'production' AS jinja_env,                  -- From variables.yaml
     'production' AS sqlplus_env,                -- From DEFINE env via sql_ prefix
-    'app_schema' AS jinja_schema,               -- From variables.json  
+    'app_schema' AS jinja_schema,               -- From variables.yaml  
     'prod_schema' AS sqlplus_schema             -- From DEFINE schema via sql_ prefix
 FROM dual;
 
@@ -1435,7 +1429,7 @@ FROM dual;
 
 ### Conflict Warning Example
 
-If `variables.json` contains `"env": "staging"` and you have `DEFINE env=production`, you'll see:
+If `variables.yaml` contains `"env": "staging"` and you have `DEFINE env=production`, you'll see:
 
 ```
 WARNING: CONFLICTO DE VARIABLES: La variable 'env' está definida tanto en 
@@ -1443,7 +1437,7 @@ SQLPlus como en Jinja2. Usando namespace forzado: SQLPlus 'env' → Jinja2 '{{ s
 ```
 
 This ensures:
-- `{{ env }}` → `"staging"` (from variables.json)
+- `{{ env }}` → `"staging"` (from variables.yaml)
 - `{{ sql_env }}` → `"production"` (from DEFINE)
 - `&env` → `"production"` (original SQLPlus)
 

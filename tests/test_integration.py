@@ -1,6 +1,6 @@
 """Tests de integración end-to-end."""
 import pytest
-import json
+import yaml
 from pathlib import Path
 from MergeSourceFile.core import main
 
@@ -16,8 +16,8 @@ class TestIntegrationEndToEnd:
         output_file = temp_dir / "output.sql"
 
         # Crear archivo de variables
-        vars_file = temp_dir / "vars.json"
-        vars_file.write_text(json.dumps({'value': 42}), encoding='utf-8')
+        vars_file = temp_dir / "vars.yaml"
+        vars_file.write_text(yaml.dump({'value': 42}), encoding='utf-8')
 
         # Crear archivo de configuración con rutas usando forward slashes
         config_file = temp_dir / "config.toml"
@@ -113,8 +113,8 @@ process_defines = true
     def test_jinja2_integration(self, temp_dir):
         """Test integración con plantillas Jinja2"""
         # Crear archivo de variables
-        vars_file = temp_dir / "vars.json"
-        vars_file.write_text(json.dumps({
+        vars_file = temp_dir / "vars.yaml"
+        vars_file.write_text(yaml.dump({
             'table_name': 'users',
             'columns': ['id', 'name', 'email']
         }), encoding='utf-8')
@@ -166,9 +166,9 @@ variables_file = "{str(vars_file).replace(chr(92), '/')}"
 CREATE TABLE &schema..{{{{ table_name }}}} (id INT);
 """, encoding='utf-8')
 
-        # Variables JSON para Jinja2
-        vars_file = temp_dir / "vars.json"
-        vars_file.write_text(json.dumps({
+        # Variables YAML para Jinja2
+        vars_file = temp_dir / "vars.yaml"
+        vars_file.write_text(yaml.dump({
             'env': 'production',
             'table_name': 'users'
         }), encoding='utf-8')
@@ -212,8 +212,8 @@ process_defines = true
         input_file.write_text("SELECT {{ value }} FROM dual;", encoding='utf-8')
 
         # Variables
-        vars_file = temp_dir / "vars.json"
-        vars_file.write_text(json.dumps({'value': 'new'}), encoding='utf-8')
+        vars_file = temp_dir / "vars.yaml"
+        vars_file.write_text(yaml.dump({'value': 'new'}), encoding='utf-8')
 
         # Config con backup habilitado
         config_file = temp_dir / "config.toml"

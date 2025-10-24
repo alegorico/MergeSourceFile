@@ -32,7 +32,7 @@ Funcionalidades principales:
 import sys
 import logging
 import traceback
-import json
+import yaml
 import tomllib
 from pathlib import Path
 from typing import Dict, Any
@@ -245,19 +245,20 @@ def _setup_logging(verbose: bool = False) -> None:
 
 
 def _load_variables(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Carga variables desde archivo JSON si está configurado."""
+    """Carga variables desde archivo YAML si está configurado."""
     variables = {}
     variables_file = config.get('jinja2', {}).get('variables_file')
     if variables_file:
         try:
             with open(variables_file, 'r', encoding='utf-8') as f:
-                file_vars = json.load(f)
-                variables.update(file_vars)
+                file_vars = yaml.safe_load(f)
+                if file_vars:  # yaml.safe_load puede retornar None para archivos vacíos
+                    variables.update(file_vars)
                 logger.info(f"Variables cargadas desde: {variables_file}")
         except FileNotFoundError:
             logger.warning(f"Archivo de variables no encontrado: {variables_file}")
-        except json.JSONDecodeError as e:
-            logger.warning(f"Error al leer variables JSON: {e}")
+        except yaml.YAMLError as e:
+            logger.warning(f"Error al leer variables YAML: {e}")
     return variables
 
 

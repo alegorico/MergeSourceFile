@@ -78,7 +78,7 @@ output = "output.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 
 [jinja2.extensions]
 sqlplus = true
@@ -118,7 +118,7 @@ Core Jinja2 template engine configuration.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `enabled` | boolean | 🔴 Yes | `true` | Enable Jinja2 processing |
-| `variables_file` | string | 🟢 No | - | JSON file with template variables |
+| `variables_file` | string | 🟢 No | - | YAML file with template variables |
 | `variable_start_string` | string | 🟢 No | `"{{` | Jinja2 variable start delimiter |
 | `variable_end_string` | string | 🟢 No | `"}}"` | Jinja2 variable end delimiter |
 | `block_start_string` | string | 🟢 No | `"{%"` | Jinja2 block start delimiter |
@@ -132,7 +132,7 @@ Core Jinja2 template engine configuration.
 ```toml
 [jinja2]
 enabled = true
-variables_file = "vars.json"
+variables_file = "vars.yaml"
 variable_start_string = "{{"
 variable_end_string = "}}"
 strict_undefined = true
@@ -196,7 +196,7 @@ verbose = false
 
 [jinja2]
 enabled = true
-variables_file = "production.json"
+variables_file = "production.yaml"
 ```
 
 ### Example 2: SQLPlus Migration
@@ -229,7 +229,7 @@ verbose = true
 
 [jinja2]
 enabled = true
-variables_file = "schema_vars.json"
+variables_file = "schema_vars.yaml"
 variable_start_string = "${"
 variable_end_string = "}"
 block_start_string = "<%"
@@ -246,27 +246,26 @@ process_defines = false    # Only Jinja2 variables
 
 ## Variables File Format
 
-When using `variables_file`, create a JSON file with your template variables:
+When using `variables_file`, create a YAML file with your template variables:
 
-### Example `variables.json`
+### Example `variables.yaml`
 
-```json
-{
-  "database": "PROD_DB",
-  "schema": "APP_SCHEMA",
-  "environment": "production",
-  "version": "2.0.0",
-  "features": {
-    "logging": true,
-    "auditing": false,
-    "encryption": true
-  },
-  "tables": [
-    {"name": "users", "prefix": "usr"},
-    {"name": "products", "prefix": "prd"},
-    {"name": "orders", "prefix": "ord"}
-  ]
-}
+```yaml
+database: PROD_DB
+schema: APP_SCHEMA
+environment: production
+version: 2.0.0
+features:
+  logging: true
+  auditing: false
+  encryption: true
+tables:
+  - name: users
+    prefix: usr
+  - name: products
+    prefix: prd
+  - name: orders
+    prefix: ord
 ```
 
 ## Include System Management
@@ -437,7 +436,7 @@ SELECT '{{ sql_schema }}' AS sqlplus_var; -- Uses DEFINE variable
 ```toml
 [jinja2]
 enabled = true
-variables_file = "vars.json"  # Contains: {"schema": "jinja_value"}
+variables_file = "vars.yaml"  # Contains: {"schema": "jinja_value"}
 
 [jinja2.extensions.sqlplus]
 process_defines = true
@@ -472,7 +471,7 @@ process_defines = true
 input = "main.sql"
 output = "output.sql"
 jinja2 = true
-jinja2_vars = "vars.json"
+jinja2_vars = "vars.yaml"
 skip_var = false
 processing_order = "default"
 ```
@@ -486,7 +485,7 @@ verbose = false
 
 [jinja2]
 enabled = true
-variables_file = "vars.json"
+variables_file = "vars.yaml"
 
 [jinja2.extensions]
 sqlplus = true
@@ -500,7 +499,7 @@ sqlplus = true
 project/
 ├── MKFSource.toml          # Configuration file
 ├── template.sql            # Main template
-├── variables.json          # Template variables
+├── variables.yaml          # Template variables
 ├── includes/               # Included SQL files
 │   ├── common.sql
 │   └── functions.sql
@@ -520,7 +519,7 @@ project/
 - **Specific paths**: Use specific `include_paths` to avoid unnecessary scanning
 - **Reasonable depth**: Don't set `max_depth` too high
 - **Minimal extensions**: Only enable extensions you actually need
-- **Variables file**: Use external JSON for complex variable structures
+- **Variables file**: Use external YAML for complex variable structures
 
 ## Error Handling
 
@@ -528,7 +527,7 @@ project/
 
 1. **Missing required sections**: Ensure `[project]` and `[jinja2]` sections exist
 2. **Invalid file paths**: Check that input files exist and output directories are writable
-3. **Malformed JSON**: Validate variables file JSON syntax
+3. **Malformed YAML**: Validate variables file YAML syntax
 4. **Extension conflicts**: Don't mix incompatible processing options
 
 ### Example Error Messages
@@ -536,7 +535,7 @@ project/
 ```
 ConfigurationError: Missing required section [project]
 FileNotFoundError: Input file 'template.sql' not found
-JSONDecodeError: Invalid JSON in variables file 'vars.json'
+YAMLError: Invalid YAML in variables file 'vars.yaml'
 RecursionError: Maximum inclusion depth (10) exceeded
 ```
 
@@ -563,7 +562,7 @@ input = "./templates/main.sql"        # Explicit relative path
 output = "./output/result.sql"        # Explicit relative path
 
 [jinja2]
-variables_file = "./vars/prod.json"   # Explicit relative path
+variables_file = "./vars/prod.yaml"   # Explicit relative path
 ```
 
 ### Validate Configuration
@@ -575,11 +574,9 @@ Test your configuration with minimal templates first:
 SELECT '{{ database }}' as db_name;
 ```
 
-```json
-// test_vars.json
-{
-  "database": "TEST_DB"
-}
+```yaml
+# test_vars.yaml
+database: TEST_DB
 ```
 
 ```toml
@@ -591,5 +588,5 @@ verbose = true
 
 [jinja2]
 enabled = true
-variables_file = "test_vars.json"
+variables_file = "test_vars.yaml"
 ```

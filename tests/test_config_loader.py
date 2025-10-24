@@ -25,7 +25,7 @@ skip_var = false
 
 [plugins.jinja2]
 enabled = true
-variables_file = "vars.json"
+variables_file = "vars.yaml"
 """, encoding='utf-8')
 
         config = load_config(str(config_file))
@@ -34,7 +34,7 @@ variables_file = "vars.json"
         assert config['project']['output'] == "output.sql"
         assert config['project']['verbose'] is True
         assert config['plugins']['sqlplus']['enabled'] is True
-        assert config['plugins']['jinja2']['variables_file'] == "vars.json"
+        assert config['plugins']['jinja2']['variables_file'] == "vars.yaml"
         assert config['project']['execution_order'] == ["jinja2", "sqlplus_includes", "sqlplus_vars"]
 
     def test_missing_config_file_raises_error(self):

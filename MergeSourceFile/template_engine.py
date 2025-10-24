@@ -70,58 +70,7 @@ EXTENSION_REGISTRY: Dict[str, Dict[str, Any]] = {
     # }
 }
 
-def get_extension_info(name: str) -> Dict[str, Any]:
-    """
-    Obtiene información de una extensión registrada.
-    
-    Args:
-        name: Nombre de la extensión
-        
-    Returns:
-        Información de la extensión
-        
-    Raises:
-        KeyError: Si la extensión no está registrada
-    """
-    if name not in EXTENSION_REGISTRY:
-        available = ", ".join(EXTENSION_REGISTRY.keys())
-        logger.error(f"Extensión '{name}' no registrada. Extensiones disponibles: {available}")
-        raise KeyError(f"Extensión no registrada: {name}")
-    
-    return EXTENSION_REGISTRY[name].copy()
-
-def get_available_extensions() -> Dict[str, str]:
-    """
-    Retorna diccionario de extensiones disponibles con sus descripciones.
-    
-    Returns:
-        Dict[nombre_extension, descripcion]
-    """
-    return {name: info["description"] for name, info in EXTENSION_REGISTRY.items()}
-
-def validate_extension_list(extensions: list) -> list:
-    """
-    Valida una lista de extensiones y retorna solo las válidas.
-    
-    Args:
-        extensions: Lista de nombres de extensiones
-        
-    Returns:
-        Lista de extensiones válidas (puede estar vacía)
-        
-    Raises:
-        ValueError: Si alguna extensión no está registrada
-    """
-    valid_extensions = []
-    for ext_name in extensions:
-        if ext_name in EXTENSION_REGISTRY:
-            valid_extensions.append(ext_name)
-        else:
-            available = ", ".join(EXTENSION_REGISTRY.keys())
-            logger.error(f"Extensión '{ext_name}' no está registrada. Extensiones disponibles: {available}")
-            raise ValueError(f"Extensión no registrada: {ext_name}")
-    
-    return valid_extensions
+# Funciones de utilidad simplificadas se integran directamente en ExtensionManager
 
 
 # ============================================================================
@@ -148,31 +97,30 @@ class ExtensionManager:
     
     def _load_enabled_extensions(self):
         """Carga las extensiones habilitadas desde la configuración."""
-        enabled_extensions = self.jinja_config.get('extensions', [])
+        extensions = self.jinja_config.get('extensions', [])
         
-        if not enabled_extensions:
+        if not extensions:
             logger.debug("No hay extensiones habilitadas")
             return
         
-        # Validar extensiones
-        try:
-            valid_extensions = validate_extension_list(enabled_extensions)
-        except ValueError as e:
-            logger.error(str(e))
-            raise
-        
-        # Cargar cada extensión
-        for ext_name in valid_extensions:
+        # Cargar y validar cada extensión directamente
+        for ext_name in extensions:
+            if ext_name not in EXTENSION_REGISTRY:
+                available = ", ".join(EXTENSION_REGISTRY.keys())
+                logger.error(f"Extensión '{ext_name}' no está registrada. Extensiones disponibles: {available}")
+                raise ValueError(f"Extensión no registrada: {ext_name}")
+            
             try:
-                ext_info = get_extension_info(ext_name)
+                ext_info = EXTENSION_REGISTRY[ext_name].copy()
                 ext_info['name'] = ext_name
                 ext_info['config'] = self.jinja_config.get(ext_name, {})
                 
-                # Importar función de procesamiento
-                ext_info['handler'] = self._import_function(
-                    ext_info['module'], 
-                    ext_info['function']
-                )
+                # Importar función de procesamiento directamente
+                module = importlib.import_module(ext_info['module'])
+                if not hasattr(module, ext_info['function']):
+                    logger.error(f"Función '{ext_info['function']}' no encontrada en módulo '{ext_info['module']}'")
+                    raise ImportError(f"Función no encontrada: {ext_info['function']}")
+                ext_info['handler'] = getattr(module, ext_info['function'])
                 
                 self.loaded_extensions.append(ext_info)
                 logger.debug(f"Extensión '{ext_name}' cargada desde {ext_info['module']}")
@@ -188,29 +136,7 @@ class ExtensionManager:
             ext_names = [ext['name'] for ext in self.loaded_extensions]
             logger.info(f"Extensiones cargadas (orden de ejecución): {ext_names}")
     
-    def _import_function(self, module_name: str, function_name: str) -> Callable:
-        """
-        Importa una función desde un módulo.
-        
-        Args:
-            module_name: Nombre del módulo
-            function_name: Nombre de la función
-            
-        Returns:
-            Función importada
-            
-        Raises:
-            ImportError: Si no se puede importar
-        """
-        try:
-            module = importlib.import_module(module_name)
-            if not hasattr(module, function_name):
-                logger.error(f"Función '{function_name}' no encontrada en módulo '{module_name}'")
-                raise ImportError(f"Función no encontrada: {function_name}")
-            return getattr(module, function_name)
-        except ImportError as e:
-            logger.error(f"Error importando {module_name}.{function_name}: {e}")
-            raise
+
     
     def process_content(self, content: str, input_file: str, base_path: str, 
                        variables: Dict[str, Any], verbose: bool = False) -> Tuple[str, Dict[str, Any]]:
@@ -243,11 +169,13 @@ class ExtensionManager:
                     verbose=verbose
                 )
                 
-                # Procesar resultado
-                content, ext_vars = self._process_extension_result(
-                    result, ext_info, variables
-                )
-                extracted_variables.update(ext_vars)
+                # Procesar resultado (simplificado)
+                if isinstance(result, tuple) and len(result) == 2:
+                    content, ext_vars = result
+                    namespaced_vars = self._apply_namespace_to_variables(ext_vars, ext_info, variables)
+                    extracted_variables.update(namespaced_vars)
+                else:
+                    content = result
                 
                 logger.debug(f"Extensión '{ext_name}' completada ({len(content)} caracteres)")
                 
@@ -255,47 +183,31 @@ class ExtensionManager:
                 logger.error(f"Error ejecutando extensión '{ext_name}': {e}")
                 if verbose:
                     raise
-                # En modo no-verbose, continuar con las demás extensiones
         
         return content, extracted_variables
     
-    def _process_extension_result(self, result: Any, ext_info: Dict[str, Any], 
-                                variables: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
-        """
-        Procesa el resultado de una extensión aplicando namespace.
+    def _apply_namespace_to_variables(self, ext_vars: Dict[str, Any], ext_info: Dict[str, Any], 
+                                    variables: Dict[str, Any]) -> Dict[str, Any]:
+        """Aplica namespace a variables extraídas por extensiones."""
+        if not ext_vars:
+            return {}
         
-        Args:
-            result: Resultado de la extensión
-            ext_info: Información completa de la extensión
-            variables: Variables Jinja2 originales
+        namespace = ext_info.get('namespace', ext_info['name'])
+        namespaced_vars = {}
+        
+        for var_name, var_value in ext_vars.items():
+            namespaced_name = f"{namespace}_{var_name}"
+            namespaced_vars[namespaced_name] = var_value
             
-        Returns:
-            Tuple[contenido, variables_con_namespace]
-        """
-        extracted_variables = {}
-        ext_name = ext_info['name']
-        namespace = ext_info.get('namespace', ext_name)  # Default: nombre extensión
+            # Warning si hay conflicto con variables Jinja2
+            if var_name in variables:
+                logger.warning(
+                    f"CONFLICTO DE VARIABLES: La variable '{var_name}' está definida "
+                    f"tanto en extensión '{ext_info['name']}' como en Jinja2. "
+                    f"Usando namespace: '{var_name}' → '{{ {namespaced_name} }}'"
+                )
         
-        if isinstance(result, tuple) and len(result) == 2:
-            content, ext_vars = result
-            if ext_vars:
-                # Aplicar namespace: namespace_variable
-                for var_name, var_value in ext_vars.items():
-                    namespaced_name = f"{namespace}_{var_name}"
-                    extracted_variables[namespaced_name] = var_value
-                    
-                    # Warning si hay conflicto con variables Jinja2
-                    if var_name in variables:
-                        logger.warning(
-                            f"CONFLICTO DE VARIABLES: La variable '{var_name}' está definida "
-                            f"tanto en extensión '{ext_name}' como en Jinja2. "
-                            f"Usando namespace: '{var_name}' → '{{ {namespaced_name} }}'"
-                        )
-        else:
-            # Extensión solo devuelve contenido
-            content = result
-        
-        return content, extracted_variables
+        return namespaced_vars
     
     def get_custom_loader(self) -> Optional[BaseLoader]:
         """
@@ -328,13 +240,10 @@ class ExtensionManager:
                 
         return None
     
+    @property
     def has_extensions(self) -> bool:
         """Verifica si hay extensiones cargadas."""
-        return len(self.loaded_extensions) > 0
-    
-    def get_extension_names(self) -> List[str]:
-        """Retorna lista de nombres de extensiones cargadas."""
-        return [ext['name'] for ext in self.loaded_extensions]
+        return bool(self.loaded_extensions)
 
 
 # ============================================================================

@@ -4,7 +4,7 @@ Tests para el motor de plantillas TemplateEngine.
 Tests para la funcionalidad core de Jinja2 y sistema de extensiones.
 """
 import pytest
-import json
+import yaml
 from pathlib import Path
 
 
@@ -24,7 +24,7 @@ class TestTemplateEngine:
         
         assert engine.config == config
         assert engine.jinja_config == {'enabled': True}
-        assert len(engine.extension_manager.get_extension_names()) == 0
+        assert not engine.extension_manager.has_extensions
 
     def test_engine_loads_sqlplus_extension(self):
         """Test que el motor carga la extensión sqlplus cuando está configurada"""
@@ -40,8 +40,9 @@ class TestTemplateEngine:
         
         engine = TemplateEngine(config)
         
-        assert engine.extension_manager.has_extensions()
-        assert 'sqlplus' in engine.extension_manager.get_extension_names()
+        assert engine.extension_manager.has_extensions
+        assert len(engine.extension_manager.loaded_extensions) == 1
+        assert engine.extension_manager.loaded_extensions[0]['name'] == 'sqlplus'
 
     def test_engine_warns_on_unknown_extension(self):
         """Test que el motor lanza error con extensiones desconocidas"""

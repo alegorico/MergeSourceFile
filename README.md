@@ -83,14 +83,12 @@ GRANT SELECT ON {{ schema }}.users TO app_role;
 {% endif %}
 ```
 
-**Create variables** (`variables.json`):
+**Create variables** (`variables.yaml`):
 
-```json
-{
-  "database": "PROD_DB",
-  "environment": "production",
-  "schema": "APP_SCHEMA"
-}
+```yaml
+database: PROD_DB
+environment: production
+schema: APP_SCHEMA
 ```
 
 **Create configuration** (`MKFSource.toml`):
@@ -102,7 +100,7 @@ output = "output.sql"
 
 [jinja2]
 enabled = true
-variables_file = "variables.json"
+variables_file = "variables.yaml"
 ```
 
 **Run the processor**:
@@ -172,7 +170,7 @@ verbose = false                    # Optional: detailed logging
 
 [jinja2]                           # Required section
 enabled = true                     # Required: enable Jinja2
-variables_file = "vars.json"       # Optional: variables file
+variables_file = "vars.yaml"       # Optional: variables file
 
 [jinja2.extensions]                # Optional section
 sqlplus = true                     # Optional: enable SQLPlus extension
