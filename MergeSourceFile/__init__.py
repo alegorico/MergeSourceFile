@@ -23,7 +23,7 @@ __license__ = "MIT"
 from .main import main
 
 # Core - API Principal
-from .config_loader import ConfigLoader
+from .config_loader import load_config
 from .resource_io import ResourceLoader
 from .plugin_system import (
     ProcessingContext,
@@ -39,7 +39,7 @@ __all__ = [
     # Función principal
     "main",
     # Core API
-    "ConfigLoader",
+    "load_config",
     "ResourceLoader",
     "ProcessingContext",
     "ProcessorPlugin",

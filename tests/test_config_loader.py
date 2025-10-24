@@ -1,13 +1,13 @@
 """
-Tests para ConfigLoader - Carga y normalización de configuración.
+Tests para config_loader - Carga y normalización de configuración.
 """
 import pytest
 from pathlib import Path
-from MergeSourceFile import ConfigLoader
+from MergeSourceFile.config_loader import load_config
 
 
 class TestConfigLoaderBasics:
-    """Tests básicos de ConfigLoader"""
+    """Tests básicos de carga de configuración"""
 
     def test_load_hierarchical_config(self, temp_dir):
         """Test carga de configuración jerárquica moderna"""
@@ -28,7 +28,7 @@ enabled = true
 variables_file = "vars.json"
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['project']['input'] == "input.sql"
         assert config['project']['output'] == "output.sql"
@@ -40,7 +40,7 @@ variables_file = "vars.json"
     def test_missing_config_file_raises_error(self):
         """Test que archivo no existente lanza FileNotFoundError"""
         with pytest.raises(FileNotFoundError):
-            ConfigLoader.load("nonexistent.toml")
+            load_config("nonexistent.toml")
 
     def test_invalid_toml_syntax_raises_error(self, temp_dir):
         """Test que sintaxis TOML inválida lanza error"""
@@ -48,7 +48,7 @@ variables_file = "vars.json"
         config_file.write_text("this is [not valid toml", encoding='utf-8')
 
         with pytest.raises(Exception):  # tomllib.TOMLDecodeError
-            ConfigLoader.load(str(config_file))
+            load_config(str(config_file))
 
 
 class TestConfigNormalization:
@@ -63,7 +63,7 @@ input = "test.sql"
 output = "output.sql"
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         # Debe tener valores configurados
         assert config['project']['input'] == "test.sql"
@@ -84,7 +84,7 @@ output = "output.sql"
 execution_order = ["jinja2", "sqlplus_vars"]
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['project']['execution_order'] == ['jinja2', 'sqlplus_vars']
 
@@ -102,7 +102,7 @@ output = "out.sql"
 
         # Debe lanzar ValueError porque falta input
         with pytest.raises(ValueError, match="input.*requerido"):
-            ConfigLoader.load(str(config_file))
+            load_config(str(config_file))
 
     def test_output_empty_string_is_rejected(self, temp_dir):
         """Test que output vacío es rechazado en la validación"""
@@ -115,7 +115,7 @@ output = ""
 
         # Debe fallar la validación porque output está vacío
         with pytest.raises(ValueError, match="output.*requerido"):
-            ConfigLoader.load(str(config_file))
+            load_config(str(config_file))
 
     def test_jinja2_enabled_without_vars_file_allowed(self, temp_dir):
         """Test que Jinja2 sin variables_file es válido"""
@@ -129,7 +129,7 @@ output = "output.sql"
 enabled = true
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['plugins']['jinja2']['enabled'] is True
         assert config['plugins']['jinja2'].get('variables_file') is None
@@ -146,7 +146,7 @@ output = "output.sql"
 enabled = false
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['plugins']['sqlplus']['enabled'] is False
 
@@ -161,7 +161,7 @@ class TestConfigEdgeCases:
 
         # Debe lanzar error porque falta input
         with pytest.raises(ValueError, match="input.*requerido"):
-            ConfigLoader.load(str(config_file))
+            load_config(str(config_file))
 
     def test_config_with_comments(self, temp_dir):
         """Test que comentarios TOML se ignoran correctamente"""
@@ -174,7 +174,7 @@ input = "test.sql"  # Comentario inline
 output = "out.sql"
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['project']['input'] == "test.sql"
         assert config['project']['output'] == "out.sql"
@@ -192,7 +192,7 @@ unknown_field = "value"
 foo = "bar"
 """, encoding='utf-8')
 
-        config = ConfigLoader.load(str(config_file))
+        config = load_config(str(config_file))
 
         assert config['project']['input'] == "test.sql"
         # Los campos desconocidos pueden estar presentes pero no afectan

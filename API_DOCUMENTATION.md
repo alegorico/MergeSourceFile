@@ -30,7 +30,7 @@ This document describes the internal API of MergeSourceFile v2.0.0 for developer
 
 ### Configuration Module: `config_loader.py`
 
-#### `ConfigLoader.load(config_file='MKFSource.toml')`
+#### `load_config(config_file='MKFSource.toml')`
 Loads and validates configuration from a TOML file.
 
 **Parameters:**
@@ -46,16 +46,16 @@ Loads and validates configuration from a TOML file.
 
 **Example:**
 ```python
-from MergeSourceFile.config_loader import ConfigLoader
+from MergeSourceFile.config_loader import load_config
 
 # Load from default MKFSource.toml in current directory
-config = ConfigLoader.load()
+config = load_config()
 print(config['project']['input'])   # Access configuration values
 print(config['project']['output'])
 print(config['plugins']['sqlplus']['enabled'])
 
 # Or specify a custom path
-config = ConfigLoader.load("custom_config.toml")
+config = load_config("custom_config.toml")
 ```
 
 **TOML File Structure (v2.0.0):**

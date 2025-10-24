@@ -34,7 +34,7 @@ import traceback
 from pathlib import Path
 from typing import Dict, Any, List
 
-from .config_loader import ConfigLoader
+from .config_loader import load_config
 from .resource_io import ResourceLoader, ResourceWriter
 from .plugin_system import ProcessingContext, PluginRegistry, ProcessorPipeline
 from .plugins import get_available_plugins
@@ -240,7 +240,7 @@ def main(config_file: str = None) -> int:
     try:
         # 1. Cargar configuración
         logger.info(f"Cargando configuración desde: {config_file}")
-        config = ConfigLoader.load(config_file)
+        config = load_config(config_file)
         
         # Configurar logging según el modo verbose
         verbose = config.get('project', {}).get('verbose', False)
