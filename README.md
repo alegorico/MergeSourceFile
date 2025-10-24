@@ -128,7 +128,7 @@ resolve_variables = true
 
 ## Configuration
 
-MergeSourceFile uses TOML configuration files. See [CONFIGURATION.md](CONFIGURATION.md) for complete reference.
+MergeSourceFile uses TOML configuration files. For complete configuration reference, visit the [Configuration Guide](https://github.com/alegorico/MergeSourceFile/blob/main/CONFIGURATION.md).
 
 ### Basic Structure
 
@@ -148,7 +148,7 @@ sqlplus = true                     # Optional: enable SQLPlus extension
 
 ## Usage Examples
 
-For detailed examples, see [EXAMPLES.md](EXAMPLES.md).
+For detailed examples and practical use cases, visit the [Examples Guide](https://github.com/alegorico/MergeSourceFile/blob/main/EXAMPLES.md).
 
 ## What's New in v2.0.0
 
@@ -279,9 +279,9 @@ pytest
 
 ## Documentation
 
-- [Configuration Guide](CONFIGURATION.md) - Complete TOML reference
-- [Usage Examples](EXAMPLES.md) - Practical use cases
-- [Changelog](CHANGELOG.md) - Version history
+- [Configuration Guide](https://github.com/alegorico/MergeSourceFile/blob/main/CONFIGURATION.md) - Complete TOML reference
+- [Usage Examples](https://github.com/alegorico/MergeSourceFile/blob/main/EXAMPLES.md) - Practical use cases
+- [Changelog](https://github.com/alegorico/MergeSourceFile/blob/main/CHANGELOG.md) - Version history
 
 ## Contributing
 
@@ -295,7 +295,7 @@ Please ensure your code follows the project's coding standards and includes appr
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/alegorico/MergeSourceFile/blob/main/LICENSE) file for details.
 
 ## Author
 
