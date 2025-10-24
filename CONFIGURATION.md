@@ -1,34 +1,26 @@
-# MergeSourceFile Configuration Guide# MergeSourceFile Configuration Guide
+# MergeSourceFile Configuration Guide
+
+## Configuration File Reference (v2.0.0)
+
+MergeSourceFile v2.0.0 uses a **Jinja2-centric architecture** with optional extensions. Configuration is stored in `MKFSource.toml` using the TOML format. The tool reads from a file named `MKFSource.toml` located in the current directory.
 
 
 
-## Overview## Configuration File Reference (v2.0.0)
+## Configuration Requirements
 
-
-
-MergeSourceFile v2.0.0 uses a **Jinja2-centric architecture** with optional extensions. Configuration is stored in `MKFSource.toml` using the TOML format.MergeSourceFile v2.0.0 introduces a **plugin-based architecture** with a new hierarchical configuration format. The tool reads from a file named `MKFSource.toml` located in the current directory.
-
-
-
-## Quick Start## Configuration Requirements
-
-
-
-### Minimal Configuration### Legend
+### Legend
 
 - 🔴 **OBLIGATORIO**: Este parámetro DEBE estar presente en el archivo
-
-The simplest possible configuration (Jinja2 only):- 🟢 **OPCIONAL**: Este parámetro puede omitirse (se usa valor por defecto)
-
+- 🟢 **OPCIONAL**: Este parámetro puede omitirse (se usa valor por defecto)
 - 🔵 **REQUERIDO**: Esta sección DEBE existir en el archivo
+- 🟡 **CONDICIONAL**: Requerido solo si se cumplen ciertas condiciones
 
-```toml- 🟡 **CONDICIONAL**: Requerido solo si se cumplen ciertas condiciones
+### Structure Overview
 
+```toml
 [project]
-
-input_file = "template.sql"### Structure Overview
-
-output_file = "output.sql"
+input = "template.sql"
+output = "output.sql"
 
 ```toml
 
