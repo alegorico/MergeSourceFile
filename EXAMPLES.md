@@ -22,9 +22,22 @@ This document provides practical examples for common MergeSourceFile use cases. 
 
 **Use Case**: Simple variable substitution in SQL templates.
 
+### Recommended Project Structure
+
+```text
+my_project/
+├── config/
+│   ├── MKFSource.toml
+│   └── variables.yaml
+├── src/
+│   └── template.sql
+└── build/
+    └── (generated output will go here)
+```
+
 ### Files
 
-**template.sql**:
+**src/template.sql**:
 ```sql
 -- Application: {{ app_name }}
 -- Version: {{ version }}
@@ -41,7 +54,7 @@ CREATE TABLE {{ schema }}.users (
 COMMENT ON TABLE {{ schema }}.users IS 'User accounts for {{ app_name }}';
 ```
 
-**variables.yaml**:
+**config/variables.yaml**:
 ```yaml
 app_name: MyApplication
 version: 2.0.0
@@ -49,11 +62,11 @@ environment: production
 schema: APP_SCHEMA
 ```
 
-**MKFSource.toml**:
+**config/MKFSource.toml**:
 ```toml
 [project]
-input_file = "template.sql"
-output_file = "output.sql"
+input_file = "../src/template.sql"
+output_file = "../build/output.sql"
 
 [jinja2]
 enabled = true
@@ -62,11 +75,12 @@ variables_file = "variables.yaml"
 
 ### Run
 
+From your project root directory:
 ```bash
-msf
+MSF_CONFIG=config/MKFSource.toml msf
 ```
 
-### Output (output.sql)
+### Output (build/output.sql)
 
 ```sql
 -- Application: MyApplication
@@ -88,11 +102,25 @@ COMMENT ON TABLE APP_SCHEMA.users IS 'User accounts for MyApplication';
 
 ## 2. Environment-Specific Deployments
 
-**Use Case**: Generate different SQL for dev/test/prod environments.
+**Use Case**: Generate different SQL for dev/test/prod environments using the `MSF_CONFIG` variable to orchestrate the builds.
+
+### Project Structure
+
+```text
+my_project/
+├── config/
+│   ├── dev.toml
+│   ├── dev_vars.yaml
+│   ├── prod.toml
+│   └── prod_vars.yaml
+├── src/
+│   └── deploy.sql
+└── build/
+```
 
 ### Files
 
-**deploy.sql**:
+**src/deploy.sql**:
 ```sql
 -- Deployment Script
 -- Environment: {{ env }}
@@ -135,7 +163,7 @@ GRANT ALL ON {{ schema }}.* TO developers;
 {% endif %}
 ```
 
-**prod.yaml**:
+**config/prod_vars.yaml**:
 ```yaml
 env: production
 tablespace_name: PROD_DATA
@@ -145,7 +173,7 @@ schema: PROD_SCHEMA
 now: "2025-10-24 10:30:00"
 ```
 
-**dev.yaml**:
+**config/dev_vars.yaml**:
 ```yaml
 env: development
 tablespace_name: DEV_DATA
@@ -155,16 +183,52 @@ schema: DEV_SCHEMA
 now: "2025-10-24 10:30:00"
 ```
 
-**MKFSource.toml**:
+**config/prod.toml**:
 ```toml
 [project]
-input_file = "deploy.sql"
-output_file = "deploy_output.sql"
+input_file = "../src/deploy.sql"
+output_file = "../build/deploy_prod.sql"
 backup = true
 
 [jinja2]
 enabled = true
-variables_file = "prod.yaml"  # Change to dev.yaml for dev deployment
+variables_file = "prod_vars.yaml"
+```
+
+**config/dev.toml**:
+```toml
+[project]
+input_file = "../src/deploy.sql"
+output_file = "../build/deploy_dev.sql"
+backup = true
+
+[jinja2]
+enabled = true
+variables_file = "dev_vars.yaml"
+```
+
+### Run Multi-Environment
+
+**Recommended Workflow (`.env` file)**:
+The most robust and standard way to orchestrate environments is by using a local `.env` file at the root of your project. Make sure you have installed the optional dotenv support (`pip install MergeSourceFile[dotenv]`).
+
+**my_project/.env**:
+```env
+# Point MSF_CONFIG to the environment you are currently building
+MSF_CONFIG=config/dev.toml
+# MSF_CONFIG=config/prod.toml
+```
+
+Then you simply execute the command from the root. MergeSourceFile will automatically load the `.env` and use the specified configuration:
+```bash
+msf
+```
+
+**Alternative Workflow (Inline)**:
+If you are running inside a CI/CD pipeline or a task runner (like `invoke` or `make`), you can inject the variable dynamically per command:
+
+```bash
+MSF_CONFIG=config/prod.toml msf
 ```
 
 ---
