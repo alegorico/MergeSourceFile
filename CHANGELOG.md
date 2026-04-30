@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2026-04-30
+
+### Added
+
+- **`python-dotenv` support**: Automatic variable loading from local `.env` files if the library is installed (`pip install MergeSourceFile[dotenv]`).
+- **`MSF_CONFIG` environment variable**: Allows specifying the configuration file path dynamically without relying on the Current Working Directory (CWD).
+- **Environment variable interpolation in TOML**: Support for `${VAR_NAME}` or `$VAR_NAME` syntax in the configuration, allowing dynamic parametrization of paths and values from the environment.
+- **Smart path resolution**: Relative paths in the configuration (`input`, `output`, `variables_file`) are now always resolved relative to the directory where the `.toml` file is located instead of the CWD, facilitating configurations in subdirectories (e.g., `./config/dev.toml`).
+
+---
+
 ## [2.0.1] - 2025-10-24
 
 ### 🎯 Conflict Resolution: Include Systems & Variable Namespaces

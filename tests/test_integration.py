@@ -257,3 +257,94 @@ enabled = true
         result = main(str(config_file))
         
         assert result == 1  # Código de error
+
+    def test_independent_src_and_config_locations(self, temp_dir):
+        """Test de desacople entre src y config, directorios independientes"""
+        import os
+        
+        # Crear directorios
+        config_dir = temp_dir / "config"
+        src_dir = temp_dir / "src"
+        build_dir = temp_dir / "build"
+        
+        config_dir.mkdir()
+        src_dir.mkdir()
+        build_dir.mkdir()
+
+        # Crear archivo fuente en src
+        input_file = src_dir / "schema.sql"
+        input_file.write_text("CREATE TABLE {{ table_name }} (id INT);", encoding='utf-8')
+
+        # Crear archivo de variables en config
+        vars_file = config_dir / "vars.yaml"
+        vars_file.write_text("table_name: users", encoding='utf-8')
+
+        # Crear config en config
+        config_file = config_dir / "MKFSource.toml"
+        # Usamos rutas relativas al archivo de configuración
+        config_file.write_text("""
+[project]
+input = "../src/schema.sql"
+output = "../build/output.sql"
+
+[jinja2]
+enabled = true
+variables_file = "vars.yaml"
+""", encoding='utf-8')
+
+        # Simulamos que ejecutamos desde la raíz del proyecto usando MSF_CONFIG
+        os.environ['MSF_CONFIG'] = str(config_file)
+        
+        # Guardar el CWD original y cambiar a temp_dir (raíz del proyecto simulado)
+        original_cwd = os.getcwd()
+        os.chdir(str(temp_dir))
+        
+        try:
+            # Ejecutamos main sin argumentos, leerá MSF_CONFIG
+            result = main()
+            
+            # Verificar éxito
+            assert result == 0
+            
+            # Verificar que el output se generó en el build_dir correcto
+            output_file = build_dir / "output.sql"
+            assert output_file.exists()
+            assert "CREATE TABLE users (id INT);" in output_file.read_text(encoding='utf-8')
+        finally:
+            # Restaurar estado
+            os.chdir(original_cwd)
+            if 'MSF_CONFIG' in os.environ:
+                del os.environ['MSF_CONFIG']
+
+    def test_msf_config_env_var_override(self, temp_dir):
+        """Test que demuestra que la configuración puede cargarse desde la variable MSF_CONFIG con un nombre no estándar"""
+        import os
+        
+        # Crear archivo de entrada
+        input_file = temp_dir / "input.sql"
+        input_file.write_text("SELECT 1 FROM dual;", encoding='utf-8')
+        output_file = temp_dir / "output.sql"
+
+        # Crear archivo de configuración con nombre NO por defecto
+        custom_config_file = temp_dir / "custom_pipeline_config.toml"
+        custom_config_file.write_text(f"""
+[project]
+input = "{str(input_file).replace(chr(92), '/')}"
+output = "{str(output_file).replace(chr(92), '/')}"
+""", encoding='utf-8')
+
+        # Asignar la variable de entorno
+        os.environ['MSF_CONFIG'] = str(custom_config_file)
+        
+        try:
+            # Ejecutar main sin argumentos, debe leer el archivo desde la variable
+            result = main()
+            
+            # Verificar
+            assert result == 0
+            assert output_file.exists()
+            assert "SELECT 1 FROM dual;" in output_file.read_text(encoding='utf-8')
+        finally:
+            # Limpiar el entorno
+            if 'MSF_CONFIG' in os.environ:
+                del os.environ['MSF_CONFIG']

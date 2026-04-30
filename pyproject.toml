@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MergeSourceFile"
-version = "2.0.0"
+version = "2.0.4"
 description = "A modular, plugin-based Python tool to process SQL*Plus scripts with Jinja2 template support, resolving file inclusions (@, @@) and variable substitutions (DEFINE/UNDEFINE)"
 readme = "README.md"
 authors = [
@@ -43,6 +43,9 @@ dev = [
 ]
 build = [
     "pyinstaller>=5.0.0"
+]
+dotenv = [
+    "python-dotenv>=1.0.0"
 ]
 
 [project.urls]

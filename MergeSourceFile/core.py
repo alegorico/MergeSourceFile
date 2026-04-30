@@ -34,6 +34,8 @@ import logging
 import traceback
 import yaml
 import tomllib
+import os
+import re
 from pathlib import Path
 from typing import Dict, Any
 
@@ -89,11 +91,17 @@ def load_config(config_file: str = 'MKFSource.toml') -> Dict[str, Any]:
         with open(config_path, 'rb') as f:
             config = tomllib.load(f)
         
-        # Normalizar configuración (retrocompatibilidad)
+        # Normalizar configuración (retrocompatibilidad e interpolación)
         normalized = _normalize_config(config)
         
         # Validar configuración
         _validate_config(normalized, config_file)
+        
+        # Guardar metadatos para resolución de rutas
+        normalized['__meta__'] = {
+            'config_file': str(config_path.resolve()),
+            'config_dir': str(config_path.resolve().parent)
+        }
         
         return normalized
     
@@ -121,7 +129,8 @@ def load_config(config_file: str = 'MKFSource.toml') -> Dict[str, Any]:
 
 def _normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Normaliza la configuración asegurando valores por defecto.
+    Normaliza la configuración asegurando valores por defecto
+    e interpola variables de entorno de la forma ${VAR} o $VAR.
     
     Formato esperado:
         [project]
@@ -137,6 +146,21 @@ def _normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
     definidos explícitamente en el archivo .toml, no hay valores
     por defecto hardcodeados.
     """
+    def _interpolate_env_vars(value: Any) -> Any:
+        if isinstance(value, str):
+            def replace_match(match):
+                var_name = match.group(1) or match.group(2)
+                return os.environ.get(var_name, match.group(0))
+            return re.sub(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)', replace_match, value)
+        elif isinstance(value, dict):
+            return {k: _interpolate_env_vars(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [_interpolate_env_vars(v) for v in value]
+        return value
+
+    # Interpolar variables de entorno
+    config = _interpolate_env_vars(config)
+
     # Asegurar que existan las secciones principales
     if 'project' not in config:
         config['project'] = {}
@@ -237,6 +261,15 @@ def _validate_config(config: Dict[str, Any], config_file: str) -> None:
 # FUNCIONES PRINCIPALES Y ORQUESTACIÓN
 # ============================================================================
 
+def _resolve_path(path_str: str, config_dir: str) -> Path:
+    """Resuelve una ruta relativa utilizando el directorio del archivo de configuración como base."""
+    if not path_str:
+        return Path()
+    path = Path(path_str)
+    if path.is_absolute():
+        return path
+    return (Path(config_dir) / path).resolve()
+
 def _setup_logging(verbose: bool = False) -> None:
     """Configura el sistema de logging."""
     level = logging.DEBUG if verbose else logging.INFO
@@ -249,14 +282,16 @@ def _load_variables(config: Dict[str, Any]) -> Dict[str, Any]:
     variables = {}
     variables_file = config.get('jinja2', {}).get('variables_file')
     if variables_file:
+        config_dir = config.get('__meta__', {}).get('config_dir', str(Path.cwd()))
+        variables_path = _resolve_path(variables_file, config_dir)
         try:
-            with open(variables_file, 'r', encoding='utf-8') as f:
+            with open(variables_path, 'r', encoding='utf-8') as f:
                 file_vars = yaml.safe_load(f)
                 if file_vars:  # yaml.safe_load puede retornar None para archivos vacíos
                     variables.update(file_vars)
-                logger.info(f"Variables cargadas desde: {variables_file}")
+                logger.info(f"Variables cargadas desde: {variables_path}")
         except FileNotFoundError:
-            logger.warning(f"Archivo de variables no encontrado: {variables_file}")
+            logger.warning(f"Archivo de variables no encontrado: {variables_path}")
         except yaml.YAMLError as e:
             logger.warning(f"Error al leer variables YAML: {e}")
     return variables
@@ -272,14 +307,23 @@ def main(config_file: str = None) -> int:
     Returns:
         Código de salida (0 = éxito, 1 = error)
     """
+    # 1. Cargar dotenv si está disponible
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
     if config_file is None:
-        config_file = 'MKFSource.toml'
+        config_file = os.environ.get('MSF_CONFIG', 'MKFSource.toml')
     
     config = None
     try:
         # 1. Cargar configuración
         logger.info(f"Cargando configuración desde: {config_file}")
         config = load_config(config_file)
+        
+        config_dir = config.get('__meta__', {}).get('config_dir', str(Path.cwd()))
         
         # 2. Configurar logging
         verbose = config.get('project', {}).get('verbose', False)
@@ -293,11 +337,11 @@ def main(config_file: str = None) -> int:
         variables = _load_variables(config)
         
         # 5. Procesar archivo
-        input_file = config['project']['input']
+        input_file = str(_resolve_path(config['project']['input'], config_dir))
         result_content = engine.process_file(input_file, variables)
         
         # 6. Crear backup si se solicita
-        output_file = config['project']['output']
+        output_file = str(_resolve_path(config['project']['output'], config_dir))
         output_path = Path(output_file)
         
         if config.get('project', {}).get('create_backup', False) and output_path.exists():

@@ -15,7 +15,7 @@ Extensiones disponibles:
 Para configurar extensiones, consulta la documentación.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.3"
 __author__ = "Alejandro G."
 __license__ = "MIT"
 

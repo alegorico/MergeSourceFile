@@ -244,6 +244,58 @@ process_includes = false   # SQLPlus includes disabled, Jinja2 includes enabled
 process_defines = false    # Only Jinja2 variables
 ```
 
+## Dynamic Configuration & Environments
+
+MergeSourceFile v2.0.4+ includes powerful features to integrate with CI/CD pipelines and task runners like `invoke`.
+
+### 1. `MSF_CONFIG` Environment Variable
+
+Instead of running from the directory where `MKFSource.toml` is located, you can define the `MSF_CONFIG` environment variable to point to any configuration file. This is ideal for supporting multiple environments.
+
+```bash
+# Set configuration for a specific environment
+export MSF_CONFIG="./configs/production.toml"
+msf
+```
+
+### 2. Environment Variable Interpolation
+
+You can use environment variables directly inside your TOML configuration files using the `${VAR_NAME}` or `$VAR_NAME` syntax. These will be interpolated before the configuration is processed.
+
+```toml
+[project]
+input = "${PROJECT_ROOT}/src/main.sql"
+output = "${BUILD_DIR}/generated_${ENV}.sql"
+
+[jinja2]
+enabled = true
+variables_file = "${PROJECT_ROOT}/vars/${ENV}.yaml"
+```
+
+### 3. Smart Relative Paths
+
+If you use relative paths in your TOML configuration, they will **always be resolved relative to the directory where the TOML file is located**, NOT the current working directory from where you executed the command.
+
+This allows you to safely place your configs in subdirectories:
+```
+my_project/
+├── configs/
+│   └── dev.toml      (input = "../src/schema.sql")
+└── src/
+    └── schema.sql
+```
+Running `MSF_CONFIG=configs/dev.toml msf` from the root will correctly resolve the input file to `./src/schema.sql`.
+
+### 4. `.env` File Support
+
+If you install the optional `python-dotenv` dependency (`pip install MergeSourceFile[dotenv]`), MergeSourceFile will automatically load variables from a `.env` file in your current directory before processing.
+
+```env
+# .env file
+MSF_CONFIG=./configs/dev.toml
+PROJECT_ROOT=/abs/path/to/project
+```
+
 ## Variables File Format
 
 When using `variables_file`, create a YAML file with your template variables:
