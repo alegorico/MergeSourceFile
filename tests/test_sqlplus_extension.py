@@ -34,11 +34,9 @@ class TestSQLPlusIncludes:
         """Test inclusión con @ (relativo a base_path)"""
         from MergeSourceFile.extensions.sqlplus import process_sqlplus
         
-        # Archivo incluido
         included = temp_dir / "included.sql"
         included.write_text("SELECT 'included';", encoding='utf-8')
         
-        # Archivo principal
         main_file = temp_dir / "main.sql"
         main_content = f"@{included.name}\nSELECT 'main';"
         main_file.write_text(main_content, encoding='utf-8')
@@ -53,22 +51,18 @@ class TestSQLPlusIncludes:
         
         assert "SELECT 'included';" in content_result
         assert "SELECT 'main';" in content_result
-        # Verificar orden
         assert content_result.index("included") < content_result.index("main")
 
     def test_process_double_at_include(self, temp_dir):
         """Test inclusión con @@ (relativo a archivo padre)"""
         from MergeSourceFile.extensions.sqlplus import process_sqlplus
         
-        # Crear subdirectorio
         subdir = temp_dir / "subdir"
         subdir.mkdir()
         
-        # Archivo incluido en mismo subdirectorio (para @@)
         included = subdir / "included.sql"
         included.write_text("SELECT 'root';", encoding='utf-8')
         
-        # Archivo principal en subdirectorio
         main_file = subdir / "main.sql"
         main_content = f"@@{included.name}\nSELECT 'sub';"
         main_file.write_text(main_content, encoding='utf-8')
@@ -88,15 +82,12 @@ class TestSQLPlusIncludes:
         """Test inclusiones anidadas multinivel"""
         from MergeSourceFile.extensions.sqlplus import process_sqlplus
         
-        # Nivel 3
         level3 = temp_dir / "level3.sql"
         level3.write_text("SELECT 'level3';", encoding='utf-8')
         
-        # Nivel 2
         level2 = temp_dir / "level2.sql"
         level2.write_text(f"@{level3.name}\nSELECT 'level2';", encoding='utf-8')
         
-        # Nivel 1
         level1 = temp_dir / "level1.sql"
         level1_content = f"@{level2.name}\nSELECT 'level1';"
         level1.write_text(level1_content, encoding='utf-8')
@@ -112,7 +103,6 @@ class TestSQLPlusIncludes:
         assert "SELECT 'level3';" in content_result
         assert "SELECT 'level2';" in content_result
         assert "SELECT 'level1';" in content_result
-        # Verificar orden correcto
         assert content_result.index("level3") < content_result.index("level2") < content_result.index("level1")
 
     def test_include_file_not_found(self, temp_dir):
@@ -151,7 +141,6 @@ class TestSQLPlusIncludes:
             verbose=False
         )
         
-        # No debería procesar la inclusión
         assert "@" in content_result
         assert "SELECT 'included';" not in content_result
 
@@ -241,8 +230,8 @@ DEFINE undefined='value'
         with pytest.raises(ValueError, match="undefined.*antes de ser definida"):
             _process_defines(content, verbose=False)
 
-    def test_comments_are_preserved(self):
-        """Test que los comentarios se preservan sin procesar"""
+    def test_comments_are_processed_by_default(self):
+        """Test que los comentarios sustituyen variables por defecto"""
         from MergeSourceFile.extensions.sqlplus import _process_defines
         
         content = """
@@ -252,6 +241,25 @@ SELECT '&var';
 """.strip()
         
         content_result = _process_defines(content, verbose=False)
+        
+        assert "-- This is a comment with value" in content_result
+        assert "SELECT 'value';" in content_result
+
+    def test_comments_can_be_preserved_when_disabled(self):
+        """Test que los comentarios pueden preservarse si se desactiva la sustitución"""
+        from MergeSourceFile.extensions.sqlplus import _process_defines
+        
+        content = """
+DEFINE var='value'
+-- This is a comment with &var
+SELECT '&var';
+""".strip()
+        
+        content_result = _process_defines(
+            content,
+            verbose=False,
+            allow_comment_substitution=False,
+        )
         
         assert "-- This is a comment with &var" in content_result
         assert "SELECT 'value';" in content_result
@@ -281,7 +289,6 @@ DEFINE invalid syntax here
 SELECT 1;
 """.strip()
         
-        # No debería lanzar error, solo ignorar
         content_result = _process_defines(content, verbose=False)
         assert "SELECT 1;" in content_result
 
@@ -302,7 +309,6 @@ SELECT '&var';
             verbose=False
         )
         
-        # No debería procesar DEFINE
         assert "DEFINE" in content_result
         assert "&var" in content_result
 
@@ -314,11 +320,9 @@ class TestSQLPlusIntegration:
         """Test que inclusiones y variables funcionan juntas"""
         from MergeSourceFile.extensions.sqlplus import process_sqlplus
         
-        # Archivo incluido con variable
         included = temp_dir / "included.sql"
         included.write_text("SELECT '&env' FROM included;", encoding='utf-8')
         
-        # Archivo principal
         main_file = temp_dir / "main.sql"
         main_content = f"""
 DEFINE env='production'
@@ -335,7 +339,6 @@ SELECT '&env' FROM main;
             verbose=False
         )
         
-        # Verificar que ambos se procesaron
         assert "SELECT 'production' FROM included;" in content_result
         assert "SELECT 'production' FROM main;" in content_result
         assert "DEFINE" not in content_result
@@ -345,11 +348,9 @@ SELECT '&env' FROM main;
         """Test que DEFINE en archivo incluido afecta al principal"""
         from MergeSourceFile.extensions.sqlplus import process_sqlplus
         
-        # Archivo incluido define variable
         included = temp_dir / "defs.sql"
         included.write_text("DEFINE shared='from_include'", encoding='utf-8')
         
-        # Archivo principal usa la variable
         main_file = temp_dir / "main.sql"
         main_content = f"""
 @{included.name}
@@ -366,3 +367,33 @@ SELECT '&shared';
         )
         
         assert "SELECT 'from_include';" in content_result
+
+    def test_comments_can_be_disabled_in_process_sqlplus(self, temp_dir):
+        """Test que la sustitución en comentarios puede desactivarse mediante config"""
+        from MergeSourceFile.extensions.sqlplus import process_sqlplus
+
+        main_file = temp_dir / "main.sql"
+        main_content = """
+DEFINE var='value'
+-- This is a comment with &var
+SELECT '&var';
+""".strip()
+        main_file.write_text(main_content, encoding='utf-8')
+
+        content_result, variables = process_sqlplus(
+            content=main_content,
+            input_file=str(main_file),
+            base_path=str(temp_dir),
+            config={
+                'process_includes': False,
+                'process_defines': True,
+                'allow_comment_substitution': False,
+            },
+            verbose=False,
+        )
+
+        assert "-- This is a comment with &var" in content_result
+        assert "SELECT 'value';" in content_result
+
+
+# End of file

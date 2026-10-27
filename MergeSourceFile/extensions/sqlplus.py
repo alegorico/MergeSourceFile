@@ -84,7 +84,12 @@ def process_sqlplus(
     # 2. Procesar variables DEFINE / UNDEFINE (si está habilitado)
     if config.get('process_defines', True):
         logger.info("Procesando variables SQLPlus (DEFINE, UNDEFINE)")
-        content, extracted_variables = _process_defines_with_extraction(content, verbose)
+        allow_comment_substitution = config.get('allow_comment_substitution', True)
+        content, extracted_variables = _process_defines_with_extraction(
+            content,
+            verbose,
+            allow_comment_substitution=allow_comment_substitution,
+        )
     
     return content, extracted_variables
 
@@ -143,17 +148,14 @@ def _read_file_recursive(file_path: str, base_path: Path, tree_depth: int, verbo
     Returns:
         Contenido expandido
     """
-    # Si es el archivo principal (tree_depth=0) o path absoluto, usar path directamente
     if tree_depth == 0 or Path(file_path).is_absolute():
         full_path = Path(file_path)
     else:
-        # Para archivos incluidos, resolver relativo a base_path
         full_path = base_path / file_path
     
     if not full_path.exists():
         raise FileNotFoundError(f"Archivo no encontrado: {full_path}")
     
-    # Prefijo para visualizar el árbol
     prefix = "    " * tree_depth + "|-- "
     logger.info(prefix + f"{full_path.name}")
     
@@ -163,12 +165,10 @@ def _read_file_recursive(file_path: str, base_path: Path, tree_depth: int, verbo
         logger.debug(f"Procesando línea: {line}")
         
         if line.startswith('@@'):
-            # @@ = relativo al directorio del archivo padre
             nested_file = line[2:].strip()
             logger.debug(f"Inclusión @@: {nested_file}")
             content += _read_file_recursive(nested_file, full_path.parent, tree_depth + 1, verbose) + '\n'
         elif line.startswith('@'):
-            # @ = relativo a base_path
             nested_file = line[1:].strip()
             logger.debug(f"Inclusión @: {nested_file}")
             content += _read_file_recursive(nested_file, base_path, tree_depth + 1, verbose) + '\n'
@@ -178,22 +178,22 @@ def _read_file_recursive(file_path: str, base_path: Path, tree_depth: int, verbo
     return content
 
 
-def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, Dict[str, str]]:
+def _process_defines_with_extraction(
+    content: str,
+    verbose: bool,
+    allow_comment_substitution: bool = True
+) -> Tuple[str, Dict[str, str]]:
     """
     Procesa variables DEFINE y UNDEFINE, extrayendo las variables para Jinja2.
-    
-    Args:
-        content: Contenido a procesar
-        verbose: Modo verbose
-    
-    Returns:
-        Tuple[contenido_con_variables_sustituidas, variables_extraidas]
+
+    Por defecto, se sustituyen las variables también dentro de comentarios.
+    Si se quiere conservar el texto literal en comentarios, se debe desactivar
+    explicitamente la sustitución con allow_comment_substitution=False.
     """
     defines: Dict[str, str] = {}
     replaced_lines = []
     replacement_count: Dict[str, int] = {}
     
-    # Patrones regex
     define_pattern = re.compile(r'^define\s+(\w+)\s*=\s*(?:\'(.*?)\'|([^\s;]+))\s*;?\s*$', re.IGNORECASE)
     undefine_pattern = re.compile(r'^undefine\s+(\w+)\s*;\s*$', re.IGNORECASE)
     variable_pattern = re.compile(r"(&\w+)(\.\.)?")
@@ -201,17 +201,17 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
     for line_number, line in enumerate(content.splitlines(), 1):
         clean = line.rstrip()
         
-        # Comentarios se preservan sin procesar
-        if clean.lstrip().startswith('--'):
+        if (
+            not allow_comment_substitution
+            and clean.lstrip().startswith('--')
+        ):
             replaced_lines.append(line)
             continue
         
-        # Detectar líneas DEFINE
         if clean.lstrip().upper().startswith('DEFINE '):
             match = define_pattern.match(clean)
             if match:
                 var_name = match.group(1)
-                # Valor puede estar con comillas (grupo 2) o sin comillas (grupo 3)
                 var_value = match.group(2) if match.group(2) is not None else match.group(3)
                 
                 if var_value is None:
@@ -220,15 +220,12 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
                 defines[var_name] = var_value
                 logger.debug(f"Definiendo variable: {var_name} = {var_value}")
                 
-                # Inicializar contador
                 if var_name not in replacement_count:
                     replacement_count[var_name] = 0
                 continue
             else:
-                # Sintaxis DEFINE inválida - ignorar
                 logger.debug(f"Ignorando DEFINE con sintaxis inválida en línea {line_number}: '{clean.strip()}'")
         
-        # Detectar líneas UNDEFINE
         match_undefine = undefine_pattern.match(clean)
         if match_undefine:
             var_name = match_undefine.group(1)
@@ -237,12 +234,11 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
             logger.debug(f"Variable indefinida: {var_name}")
             continue
         
-        # Reemplazar variables en la línea
         all_matches = variable_pattern.findall(clean)
         replaced_line = clean
         
         for match in all_matches:
-            var_name = match[0][1:]  # Sin el símbolo '&'
+            var_name = match[0][1:]
             if var_name not in defines:
                 raise ValueError(
                     f"Error: La variable '{var_name}' se usa antes de ser definida (línea {line_number})."
@@ -250,8 +246,7 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
             
             value = defines[var_name]
             
-            # Reemplazar
-            if match[1]:  # Tiene concatenación '..'
+            if match[1]:
                 replaced_line = replaced_line.replace(match[0] + "..", value + ".")
             else:
                 replaced_line = replaced_line.replace(match[0], value)
@@ -261,7 +256,6 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
         
         replaced_lines.append(replaced_line)
     
-    # Mostrar resumen de sustituciones
     logger.info("\nResumen de sustituciones:")
     if replacement_count:
         max_var_length = max(len(var) for var in replacement_count)
@@ -273,22 +267,22 @@ def _process_defines_with_extraction(content: str, verbose: bool) -> Tuple[str, 
     return "\n".join(replaced_lines), defines
 
 
-def _process_defines(content: str, verbose: bool) -> str:
+def _process_defines(
+    content: str,
+    verbose: bool,
+    allow_comment_substitution: bool = True
+) -> str:
     """
     Procesa variables DEFINE y UNDEFINE en el contenido.
-    
-    Args:
-        content: Contenido a procesar
-        verbose: Modo verbose
-    
-    Returns:
-        Contenido con variables sustituidas
+
+    Por defecto, las variables también se sustituyen dentro de comentarios.
+    Si se quiere conservar el texto literal en comentarios, hay que desactivar
+    la sustitución explícitamente mediante allow_comment_substitution=False.
     """
     defines: Dict[str, str] = {}
     replaced_lines = []
     replacement_count: Dict[str, int] = {}
     
-    # Patrones regex
     define_pattern = re.compile(r'^define\s+(\w+)\s*=\s*(?:\'(.*?)\'|([^\s;]+))\s*;?\s*$', re.IGNORECASE)
     undefine_pattern = re.compile(r'^undefine\s+(\w+)\s*;\s*$', re.IGNORECASE)
     variable_pattern = re.compile(r"(&\w+)(\.\.)?")
@@ -296,17 +290,17 @@ def _process_defines(content: str, verbose: bool) -> str:
     for line_number, line in enumerate(content.splitlines(), 1):
         clean = line.rstrip()
         
-        # Comentarios se preservan sin procesar
-        if clean.lstrip().startswith('--'):
+        if (
+            not allow_comment_substitution
+            and clean.lstrip().startswith('--')
+        ):
             replaced_lines.append(line)
             continue
         
-        # Detectar líneas DEFINE
         if clean.lstrip().upper().startswith('DEFINE '):
             match = define_pattern.match(clean)
             if match:
                 var_name = match.group(1)
-                # Valor puede estar con comillas (grupo 2) o sin comillas (grupo 3)
                 var_value = match.group(2) if match.group(2) is not None else match.group(3)
                 
                 if var_value is None:
@@ -315,15 +309,12 @@ def _process_defines(content: str, verbose: bool) -> str:
                 defines[var_name] = var_value
                 logger.debug(f"Definiendo variable: {var_name} = {var_value}")
                 
-                # Inicializar contador
                 if var_name not in replacement_count:
                     replacement_count[var_name] = 0
                 continue
             else:
-                # Sintaxis DEFINE inválida - ignorar
                 logger.debug(f"Ignorando DEFINE con sintaxis inválida en línea {line_number}: '{clean.strip()}'")
         
-        # Detectar líneas UNDEFINE
         match_undefine = undefine_pattern.match(clean)
         if match_undefine:
             var_name = match_undefine.group(1)
@@ -332,12 +323,11 @@ def _process_defines(content: str, verbose: bool) -> str:
             logger.debug(f"Variable indefinida: {var_name}")
             continue
         
-        # Reemplazar variables en la línea
         all_matches = variable_pattern.findall(clean)
         replaced_line = clean
         
         for match in all_matches:
-            var_name = match[0][1:]  # Sin el símbolo '&'
+            var_name = match[0][1:]
             if var_name not in defines:
                 raise ValueError(
                     f"Error: La variable '{var_name}' se usa antes de ser definida (línea {line_number})."
@@ -345,8 +335,7 @@ def _process_defines(content: str, verbose: bool) -> str:
             
             value = defines[var_name]
             
-            # Reemplazar
-            if match[1]:  # Tiene concatenación '..'
+            if match[1]:
                 replaced_line = replaced_line.replace(match[0] + "..", value + ".")
             else:
                 replaced_line = replaced_line.replace(match[0], value)
@@ -356,7 +345,6 @@ def _process_defines(content: str, verbose: bool) -> str:
         
         replaced_lines.append(replaced_line)
     
-    # Mostrar resumen de sustituciones
     logger.info("\nResumen de sustituciones:")
     if replacement_count:
         max_var_length = max(len(var) for var in replacement_count)
@@ -366,3 +354,6 @@ def _process_defines(content: str, verbose: bool) -> str:
         logger.info("No se realizaron sustituciones de variables.")
     
     return "\n".join(replaced_lines)
+
+
+# End of file
